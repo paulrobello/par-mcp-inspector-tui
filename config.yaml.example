@@ -1,0 +1,75 @@
+# Example configuration file for MCP Inspector
+# Copy this to ~/.config/mcp-inspector/servers.yaml and adjust as needed
+#
+# Configuration Options:
+# - toast_notifications (boolean, default: true): Controls whether to show toast popup
+#   notifications when the server sends notifications. When false, notifications are
+#   still added to the notifications tab but won't show as toast popups.
+
+servers:
+  # Example STDIO server using filesystem MCP server
+  filesystem-server:
+    name: "Filesystem Server"
+    transport: "stdio"
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "/tmp"
+    env:
+      NODE_ENV: "production"
+    toast_notifications: true  # Show toast notifications (default: true)
+
+  # Example SQLite server
+  sqlite-server:
+    name: "SQLite Server"
+    transport: "stdio"
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-sqlite"
+      - "--db-path"
+      - "/path/to/your/database.db"
+    env:
+      NODE_ENV: "production"
+
+  # Example TCP server
+  tcp-server:
+    name: "TCP Server"
+    transport: "tcp"
+    host: "localhost"
+    port: 3333
+    toast_notifications: false  # Disable toast notifications for this server
+
+  # Example custom Python server
+  custom-python-server:
+    name: "Custom Python Server"
+    transport: "stdio"
+    command: "python"
+    args:
+      - "/path/to/your/mcp_server.py"
+    env:
+      DEBUG: "1"
+      DATABASE_URL: "sqlite:///data.db"
+
+  # Example GitHub server (requires token)
+  github-server:
+    name: "GitHub Server"
+    transport: "stdio"
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-github"
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "your_github_token_here"
+
+  # Example Everything server (for testing)
+  everything-server:
+    name: "Everything Server"
+    transport: "stdio"
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-everything"
+    env:
+      NODE_ENV: "development"

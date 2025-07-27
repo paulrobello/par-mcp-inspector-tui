@@ -1,0 +1,115 @@
+[project]
+name = "par-mcp-inspector-tui"
+dynamic = [
+    "version",
+]
+description = "PAR MCP Inspector TUI"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Paul Robello", email = "probello@gmail.com" },
+]
+maintainers = [
+    { name = "Paul Robello", email = "probello@gmail.com" },
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Environment :: Console",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Other Audience",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+keywords = [
+    "tui",
+    "terminal",
+    "mcp"
+]
+dependencies = [
+    "python-dotenv>=1.1.1",
+    "rich>=14.0.0",
+    "typer>=0.16.0",
+    "textual[syntax]>=4.0.0",
+    "pydantic-core>=2.33.2",
+    "pydantic>=2.11.7",
+    "pyyaml>=6.0.2",
+    "filetype>=1.2.0",
+]
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Homepage = "https://github.com/paulrobello/par-mcp-inspector-tui"
+Documentation = "https://github.com/paulrobello/par-mcp-inspector-tui/blob/main/README.md"
+Repository = "https://github.com/paulrobello/par-mcp-inspector-tui"
+Issues = "https://github.com/paulrobello/par-mcp-inspector-tui/issues"
+Discussions = "https://github.com/paulrobello/par-mcp-inspector-tui/discussions"
+Wiki = "https://github.com/paulrobello/par-mcp-inspector-tui/wiki"
+
+[project.scripts]
+pmit = "par_mcp_inspector_tui.__main__:app"
+
+[build-system]
+requires = [
+    "hatchling",
+    "wheel",
+]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "build>=1.2.2.post1",
+    "pyright>=1.1.403",
+    "pre-commit>=4.2.0",
+    "ruff>=0.12.4",
+    "pyinstrument>=5.0.3",
+    "scalene>=1.5.51",
+    "textual-dev>=1.7.0",
+    "hatchling>=1.27.0",
+]
+
+[tool.hatch.version]
+path = "src/par_mcp_inspector_tui/__init__.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/par_mcp_inspector_tui",
+]
+include = [
+    "py.typed",
+    "**/*.py",
+    "**/*.html",
+    "**/*.gif",
+    "**/*.jpg",
+    "**/*.png",
+    "**/*.md",
+    "**/*.tcss",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/par_mcp_inspector_tui",
+    "LICENSE",
+    "README.md",
+    "pyproject.toml",
+]
+exclude = [
+    "*.pyc",
+    "__pycache__",
+    "*.so",
+    "*.dylib",
+]
