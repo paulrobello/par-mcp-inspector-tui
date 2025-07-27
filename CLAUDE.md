@@ -75,8 +75,5 @@ A TUI application for inspecting and interacting with Model Context Protocol (MC
 - Test server notifications with Everything server (sends notifications every 20 seconds)
 - Test UI controls for toast notifications (add/edit server dialogs)
 
-## Status
-This tool has not been released yet.
-
 ## Development Warnings
 - Do not run the actual TUI application when working on code, as the user must do it to prevent terminal corruption. The other app cli commands are safe.
