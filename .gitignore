@@ -78,3 +78,4 @@ __pypackages__/
 **/ls_volume
 **/.terraform
 **/logs
+/reddit_release.md
