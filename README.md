@@ -1,10 +1,11 @@
 # PAR MCP Inspector TUI
 
-[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://python.org)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
 ![Runs on Linux | MacOS | Windows](https://img.shields.io/badge/runs%20on-Linux%20%7C%20MacOS%20%7C%20Windows-blue)
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
+![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
 
@@ -34,7 +35,7 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 - **Capability-aware**: Gracefully handles servers with partial MCP implementation
 
 ## Technology Stack
-- **Python 3.12+** - Modern Python with latest features
+- **Python 3.11+** - Modern Python with latest features
 - **Textual** - Beautiful, responsive terminal user interfaces
 - **Pydantic** - Data validation and serialization
 - **Rich** - Terminal output formatting and syntax highlighting
@@ -44,7 +45,7 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 
 ## Prerequisites
 
-To install PAR MCP Inspector TUI, make sure you have Python 3.12+.
+To install PAR MCP Inspector TUI, make sure you have Python 3.11+.
 
 ### [uv](https://pypi.org/project/uv/) is recommended
 
@@ -60,7 +61,33 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 
 ## Installation
 
+### Installation from PyPI (Recommended)
+
+Install the latest stable version using uv:
+
+```bash
+uv tool install par-mcp-inspector-tui
+```
+
+Or using pip:
+
+```bash
+pip install par-mcp-inspector-tui
+```
+
+After installation, you can run the tool directly:
+
+```bash
+# Launch the TUI application
+pmit tui
+
+# Show all available commands
+pmit --help
+```
+
 ### Installation From Source
+
+For development or to get the latest features:
 
 1. Clone the repository:
    ```bash
@@ -73,47 +100,87 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
    uv sync
    ```
 
+3. Run using uv:
+   ```bash
+   uv run pmit tui
+   ```
+
 ## Usage
 
 ### CLI Commands Overview
 
+If installed from PyPI:
 ```shell
 # Show all available commands
-uv run ptmi --help
+pmit --help
 
 # Show version information
-uv run ptmi --version
+pmit --version
 
 # Launch the TUI application
-uv run ptmi tui
+pmit tui
 
 # Launch TUI with debug mode
-uv run ptmi tui --debug
+pmit tui --debug
 
 # List configured servers
-uv run ptmi servers
+pmit servers
 
 # Debug a configured server
-uv run ptmi debug <server-id> --verbose
+pmit debug <server-id> --verbose
 
 # Connect to arbitrary STDIO server
-uv run ptmi connect npx --arg "-y" --arg "@modelcontextprotocol/server-filesystem" --arg "/tmp"
+pmit connect npx --arg "-y" --arg "@modelcontextprotocol/server-filesystem" --arg "/tmp"
 
 # Connect to arbitrary TCP server
-uv run ptmi connect-tcp localhost 3333
+pmit connect-tcp localhost 3333
 
 # Download resources from servers
-uv run ptmi download-resource <server-id> <resource-name>
+pmit download-resource <server-id> <resource-name>
+```
+
+If running from source:
+```shell
+# Show all available commands
+uv run pmit --help
+
+# Show version information
+uv run pmit --version
+
+# Launch the TUI application
+uv run pmit tui
+
+# Launch TUI with debug mode
+uv run pmit tui --debug
+
+# List configured servers
+uv run pmit servers
+
+# Debug a configured server
+uv run pmit debug <server-id> --verbose
+
+# Connect to arbitrary STDIO server
+uv run pmit connect npx --arg "-y" --arg "@modelcontextprotocol/server-filesystem" --arg "/tmp"
+
+# Connect to arbitrary TCP server
+uv run pmit connect-tcp localhost 3333
+
+# Download resources from servers
+uv run pmit download-resource <server-id> <resource-name>
 ```
 
 ### TUI Application
 
 ```shell
-# Start the MCP Inspector TUI
-uv run ptmi tui
+# Start the MCP Inspector TUI (if installed from PyPI)
+pmit tui
 
 # Enable debug mode for troubleshooting
-uv run ptmi tui --debug
+pmit tui --debug
+
+# If running from source
+uv run pmit tui
+uv run pmit tui --debug
 ```
 
 **Options:**
@@ -121,7 +188,7 @@ uv run ptmi tui --debug
 
 ### First Time Setup
 
-1. **Launch the application**: `uv run ptmi tui`
+1. **Launch the application**: `pmit tui` (or `uv run pmit tui` if running from source)
 2. **Default servers**: The application comes with example server configurations
 3. **Add your servers**: Use the "Add Server" button to configure your MCP servers
 4. **Connect**: Select a server from the list and click "Connect"
@@ -133,7 +200,7 @@ Test any MCP server instantly without adding it to configuration:
 
 ```shell
 # Test a filesystem server
-uv run ptmi connect npx \
+uv run pmit connect npx \
   --arg "-y" \
   --arg "@modelcontextprotocol/server-filesystem" \
   --arg "/tmp" \
@@ -141,13 +208,13 @@ uv run ptmi connect npx \
   --verbose
 
 # Test with environment variables
-uv run ptmi connect python \
+uv run pmit connect python \
   --arg "my_server.py" \
   --env "DEBUG=1" \
   --env "DATABASE_URL=sqlite:///test.db"
 
 # Test TCP server
-uv run ptmi connect-tcp myhost.com 8080 --verbose
+uv run pmit connect-tcp myhost.com 8080 --verbose
 ```
 
 ## CLI Commands Reference
@@ -158,7 +225,11 @@ uv run ptmi connect-tcp myhost.com 8080 --verbose
 
 ### `tui` - Launch TUI Application
 ```shell
-uv run ptmi tui [OPTIONS]
+# If installed from PyPI
+pmit tui [OPTIONS]
+
+# If running from source
+uv run pmit tui [OPTIONS]
 ```
 
 **Options:**
@@ -166,13 +237,21 @@ uv run ptmi tui [OPTIONS]
 
 ### `servers` - List Configured Servers
 ```shell
-uv run ptmi servers
+# If installed from PyPI
+pmit servers
+
+# If running from source
+uv run pmit servers
 ```
 Shows a formatted table of all configured MCP servers with their connection details and status.
 
 ### `debug` - Debug Configured Server
 ```shell
-uv run ptmi debug <server-id-or-name> [OPTIONS]
+# If installed from PyPI
+pmit debug <server-id-or-name> [OPTIONS]
+
+# If running from source
+uv run pmit debug <server-id-or-name> [OPTIONS]
 ```
 
 **Arguments:**
@@ -198,7 +277,11 @@ Connect to a pre-configured server and test all MCP endpoints:
 
 ### `connect` - Connect to Arbitrary STDIO Server
 ```shell
-uv run ptmi connect <command> [OPTIONS]
+# If installed from PyPI
+pmit connect <command> [OPTIONS]
+
+# If running from source
+uv run pmit connect <command> [OPTIONS]
 ```
 
 **Arguments:**
@@ -218,19 +301,26 @@ Connect to an arbitrary STDIO server without adding it to configuration. Uses th
 
 **Examples:**
 ```shell
-# Basic usage
-uv run ptmi connect npx -a "-y" -a "@modelcontextprotocol/server-filesystem" -a "/tmp"
+# Basic usage (PyPI installation)
+pmit connect npx -a "-y" -a "@modelcontextprotocol/server-filesystem" -a "/tmp"
 
 # With environment variables and custom name
-uv run ptmi connect python -a "server.py" -e "DEBUG=1" -e "PORT=8080" -n "My Server"
+pmit connect python -a "server.py" -e "DEBUG=1" -e "PORT=8080" -n "My Server"
 
 # Verbose output with debug logging
-uv run ptmi connect node -a "server.js" --verbose --debug
+pmit connect node -a "server.js" --verbose --debug
+
+# From source
+uv run pmit connect npx -a "-y" -a "@modelcontextprotocol/server-filesystem" -a "/tmp"
 ```
 
 ### `connect-tcp` - Connect to Arbitrary TCP Server
 ```shell
-uv run ptmi connect-tcp [HOST] [PORT] [OPTIONS]
+# If installed from PyPI
+pmit connect-tcp [HOST] [PORT] [OPTIONS]
+
+# If running from source
+uv run pmit connect-tcp [HOST] [PORT] [OPTIONS]
 ```
 
 **Arguments:**
@@ -249,16 +339,24 @@ Connect to an arbitrary TCP server without adding it to configuration. Uses the 
 
 **Examples:**
 ```shell
-# Default host and port
-uv run ptmi connect-tcp
+# Default host and port (PyPI installation)
+pmit connect-tcp
 
 # Custom host and port with verbose and debug output
-uv run ptmi connect-tcp example.com 8080 -n "Remote Server" --verbose --debug
+pmit connect-tcp example.com 8080 -n "Remote Server" --verbose --debug
+
+# From source
+uv run pmit connect-tcp
+uv run pmit connect-tcp example.com 8080 -n "Remote Server" --verbose --debug
 ```
 
 ### `download-resource` - Download Resources by Name
 ```shell
-uv run ptmi download-resource <server-id-or-name> <resource-name> [OPTIONS]
+# If installed from PyPI
+pmit download-resource <server-id-or-name> <resource-name> [OPTIONS]
+
+# If running from source
+uv run pmit download-resource <server-id-or-name> <resource-name> [OPTIONS]
 ```
 
 **Arguments:**
@@ -279,17 +377,20 @@ uv run ptmi download-resource <server-id-or-name> <resource-name> [OPTIONS]
 
 **Examples:**
 ```shell
-# Download resource with auto-detection
-uv run ptmi download-resource Everything "Resource 1"
+# Download resource with auto-detection (PyPI installation)
+pmit download-resource Everything "Resource 1"
 
 # Custom output directory
-uv run ptmi download-resource filesystem-server "config.json" --output ~/Downloads
+pmit download-resource filesystem-server "config.json" --output ~/Downloads
 
 # Custom filename with verbose output
-uv run ptmi download-resource Everything "Resource 2" --filename my-file.txt --verbose
+pmit download-resource Everything "Resource 2" --filename my-file.txt --verbose
 
 # Download binary resource (automatic type detection)
-uv run ptmi download-resource image-server "logo.png" --output ./assets
+pmit download-resource image-server "logo.png" --output ./assets
+
+# From source
+uv run pmit download-resource Everything "Resource 1"
 ```
 
 ## Server Configuration
@@ -439,8 +540,13 @@ Test these official MCP servers using the CLI commands:
 
 1. **Filesystem Server**:
    ```shell
-   # Using CLI connect
-   uv run ptmi connect npx \
+   # Using CLI connect (PyPI installation)
+   pmit connect npx \
+     -a "-y" -a "@modelcontextprotocol/server-filesystem" -a "/tmp" \
+     --verbose
+
+   # From source
+   uv run pmit connect npx \
      -a "-y" -a "@modelcontextprotocol/server-filesystem" -a "/tmp" \
      --verbose
 
@@ -450,8 +556,14 @@ Test these official MCP servers using the CLI commands:
 
 2. **SQLite Server**:
    ```shell
-   # Using CLI connect
-   uv run ptmi connect npx \
+   # Using CLI connect (PyPI installation)
+   pmit connect npx \
+     -a "-y" -a "@modelcontextprotocol/server-sqlite" \
+     -a "--db-path" -a "test.db" \
+     --verbose
+
+   # From source
+   uv run pmit connect npx \
      -a "-y" -a "@modelcontextprotocol/server-sqlite" \
      -a "--db-path" -a "test.db" \
      --verbose
@@ -462,8 +574,15 @@ Test these official MCP servers using the CLI commands:
 
 3. **Custom Python Server**:
    ```shell
-   # Test your custom server
-   uv run ptmi connect python \
+   # Test your custom server (PyPI installation)
+   pmit connect python \
+     -a "my_mcp_server.py" \
+     -e "DATABASE_URL=sqlite:///data.db" \
+     -n "My Custom Server" \
+     --verbose
+
+   # From source
+   uv run pmit connect python \
      -a "my_mcp_server.py" \
      -e "DATABASE_URL=sqlite:///data.db" \
      -n "My Custom Server" \
@@ -472,8 +591,14 @@ Test these official MCP servers using the CLI commands:
 
 4. **GitHub MCP Server**:
    ```shell
-   # Test GitHub integration server
-   uv run ptmi connect npx \
+   # Test GitHub integration server (PyPI installation)
+   pmit connect npx \
+     -a "-y" -a "@modelcontextprotocol/server-github" \
+     -e "GITHUB_PERSONAL_ACCESS_TOKEN=your_token" \
+     --verbose
+
+   # From source
+   uv run pmit connect npx \
      -a "-y" -a "@modelcontextprotocol/server-github" \
      -e "GITHUB_PERSONAL_ACCESS_TOKEN=your_token" \
      --verbose
@@ -481,8 +606,13 @@ Test these official MCP servers using the CLI commands:
 
 5. **Everything Server (for testing notifications)**:
    ```shell
-   # Test server that sends regular notifications
-   uv run ptmi connect npx \
+   # Test server that sends regular notifications (PyPI installation)
+   pmit connect npx \
+     -a "-y" -a "@modelcontextprotocol/server-everything" \
+     --verbose
+
+   # From source
+   uv run pmit connect npx \
      -a "-y" -a "@modelcontextprotocol/server-everything" \
      --verbose
    ```
@@ -537,7 +667,7 @@ uv sync
 make checkall
 
 # Run the application
-uv run ptmi tui
+uv run pmit tui
 ```
 
 ### Development Commands
@@ -642,26 +772,34 @@ src/par-mcp-inspector-tui/
 
 #### CLI Debugging
 ```shell
-# Test any STDIO server without configuration
-uv run ptmi connect <command> --verbose --debug
+# Test any STDIO server without configuration (PyPI installation)
+pmit connect <command> --verbose --debug
 
 # Test any TCP server without configuration  
-uv run ptmi connect-tcp <host> <port> --verbose --debug
+pmit connect-tcp <host> <port> --verbose --debug
 
 # Debug configured servers
-uv run ptmi debug <server-id-or-name> --verbose --debug
+pmit debug <server-id-or-name> --verbose --debug
 
 # List all configured servers
-uv run ptmi servers
+pmit servers
 
 # Download resources from configured servers
-uv run ptmi download-resource <server-id> "<resource-name>" --verbose
+pmit download-resource <server-id> "<resource-name>" --verbose
+
+# From source (prefix all commands with 'uv run')
+uv run pmit connect <command> --verbose --debug
+uv run pmit connect-tcp <host> <port> --verbose --debug
+# etc...
 ```
 
 #### TUI Debug Mode
 ```shell
-# Enable debug logging in TUI
-uv run ptmi tui --debug
+# Enable debug logging in TUI (PyPI installation)
+pmit tui --debug
+
+# From source
+uv run pmit tui --debug
 ```
 
 #### Enhanced Debug Features
