@@ -15,11 +15,11 @@ export PIPENV_VERBOSITY=-1
 # Run the app.
 .PHONY: run
 run:		# Run app
-	$(run) $(lib)
+	$(run) pmit tui
 
 .PHONY: app_help
 app_help:		# Show app help
-	$(run) $(lib)  --help
+	$(run) pmit --help
 
 .PHONY: dev
 dev:	        # Run in dev mode
