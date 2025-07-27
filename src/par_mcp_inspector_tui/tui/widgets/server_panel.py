@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import VerticalScroll
 from textual.widget import Widget
 from textual.widgets import Button, Label, ListItem, ListView
 
@@ -68,7 +68,7 @@ class ServerPanel(Widget):
         # ListView already extends VerticalScroll - no wrapper needed
         yield ListView(id="server-list", classes="server-list")
 
-        with Vertical():
+        with VerticalScroll():
             yield Button("Connect", id="connect-button", classes="connection-button", disabled=True)
             yield Button("Add Server", id="add-server-button", variant="primary")
             yield Button("Edit Server", id="edit-server-button", disabled=True)
