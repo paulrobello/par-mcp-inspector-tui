@@ -2,12 +2,18 @@ name: Publish 🐍 📦 to PyPI
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Publish 🐍 📦 to TestPyPI"]
+    types:
+      - completed
+    branches:
+      - main
   release:
     types: [ published ]
 
 jobs:
   publish-to-pypi:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     name: Publish 🐍 distribution 📦 to PyPI
     runs-on: ubuntu-latest
     timeout-minutes: 20

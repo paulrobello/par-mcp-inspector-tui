@@ -2,10 +2,16 @@ name: Publish 🐍 📦 to TestPyPI
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build and Test 🐍 distribution 📦"]
+    types:
+      - completed
+    branches:
+      - main
 
 jobs:
   publish-to-testpypi:
-    if: github.event_name == 'workflow_dispatch'  # Only allow manual triggers
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     name: Publish 🐍 distribution 📦 to TestPyPI
     runs-on: ubuntu-latest
     timeout-minutes: 20

@@ -2,9 +2,16 @@ name: Release 🐍 distribution
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Publish 🐍 📦 to PyPI"]
+    types:
+      - completed
+    branches:
+      - main
 
 jobs:
   github-release:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     name: Create GitHub Release
     runs-on: ubuntu-latest
     timeout-minutes: 20
