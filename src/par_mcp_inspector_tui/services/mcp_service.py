@@ -1,6 +1,7 @@
 """MCP service for managing server connections, operations, and real-time notifications."""
 
 import asyncio
+import logging
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
@@ -12,6 +13,7 @@ from ..models import (
     Prompt,
     Resource,
     ResourceTemplate,
+    Root,
     ServerInfo,
     ServerNotification,
     ServerNotificationType,
@@ -19,6 +21,8 @@ from ..models import (
     Tool,
     TransportType,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class MCPService:
@@ -66,7 +70,7 @@ class MCPService:
             try:
                 callback(state)
             except Exception as e:
-                print(f"Error in state callback: {e}")
+                logger.error(f"Error in state callback: {e}")
 
     def _notify_server_notification(self, notification: ServerNotification) -> None:
         """Notify all server notification callbacks."""
@@ -74,16 +78,16 @@ class MCPService:
             try:
                 callback(notification)
             except Exception as e:
-                print(f"Error in notification callback: {e}")
+                logger.error(f"Error in notification callback: {e}")
 
     def _handle_mcp_notification(self, mcp_notification: MCPNotification) -> None:
         """Handle incoming MCP notification from server."""
         if self._debug:
-            print(f"[DEBUG] MCPService received notification: {mcp_notification.method}")
+            logger.debug(f"MCPService received notification: {mcp_notification.method}")
 
         if not self._server:
             if self._debug:
-                print("[DEBUG] No server configured, ignoring notification")
+                logger.debug("No server configured, ignoring notification")
             return
 
         server_name = self._server.name or "Unknown Server"
@@ -128,7 +132,7 @@ class MCPService:
             self._notify_server_notification(server_notification)
 
         except Exception as e:
-            print(f"Error processing server notification: {e}")
+            logger.error(f"Error processing server notification: {e}")
 
     async def connect(self, server: MCPServer) -> None:
         """Connect to an MCP server.
@@ -148,22 +152,25 @@ class MCPService:
             self._notify_state_change(ServerState.CONNECTING)
 
             try:
+                # Use server-specific roots or fall back to service defaults
+                server_roots = server.roots or self._roots
+
                 # Create appropriate client
                 if server.transport == TransportType.STDIO:
-                    self._client = StdioMCPClient(debug=self._debug, roots=self._roots)
+                    self._client = StdioMCPClient(debug=self._debug, roots=server_roots)
                     await self._client.connect(
                         command=server.command or "",
                         args=server.args,
                         env=server.env,
                     )
                 elif server.transport == TransportType.TCP:
-                    self._client = TcpMCPClient(debug=self._debug, roots=self._roots)
+                    self._client = TcpMCPClient(debug=self._debug, roots=server_roots)
                     await self._client.connect(
                         host=server.host or "localhost",
                         port=server.port or 3333,
                     )
                 elif server.transport == TransportType.HTTP:
-                    self._client = HttpMCPClient(debug=self._debug, roots=self._roots)
+                    self._client = HttpMCPClient(debug=self._debug, roots=server_roots)
                     await self._client.connect(
                         url=server.url or "",
                     )
@@ -177,7 +184,7 @@ class MCPService:
 
                 # Register notification handlers
                 if self._debug:
-                    print(f"[DEBUG] Registering notification handlers for server: {server.name}")
+                    logger.debug(f"Registering notification handlers for server: {server.name}")
 
                 self._client.on_notification(ServerNotificationType.TOOLS_LIST_CHANGED, self._handle_mcp_notification)
                 self._client.on_notification(
@@ -187,7 +194,7 @@ class MCPService:
                 self._client.on_notification(ServerNotificationType.MESSAGE, self._handle_mcp_notification)
 
                 if self._debug:
-                    print(f"[DEBUG] Registered handlers for: {list(ServerNotificationType)}")
+                    logger.debug(f"Registered handlers for: {list(ServerNotificationType)}")
 
                 self._notify_state_change(ServerState.CONNECTED)
 
@@ -213,7 +220,7 @@ class MCPService:
         try:
             await self._client.disconnect()
         except Exception as e:
-            print(f"Error disconnecting: {e}")
+            logger.error(f"Error disconnecting: {e}")
         finally:
             self._client = None
             self._notify_state_change(ServerState.DISCONNECTED)
@@ -326,3 +333,64 @@ class MCPService:
             raise MCPClientError("Not connected to server")
 
         return await self._client.get_prompt(name, arguments)
+
+    async def get_roots(self) -> list[Root]:
+        """Get current filesystem roots from the client.
+
+        Returns:
+            List of Root objects
+
+        Raises:
+            MCPClientError: If not connected
+        """
+        if not self._client:
+            raise MCPClientError("Not connected to server")
+
+        roots_data = self._client.get_roots()
+        return [Root(uri=root["uri"], name=root.get("name")) for root in roots_data]
+
+    async def add_root(self, root: Root) -> None:
+        """Add a new filesystem root.
+
+        Args:
+            root: Root object to add
+
+        Raises:
+            MCPClientError: If not connected
+        """
+        if not self._client:
+            raise MCPClientError("Not connected to server")
+
+        self._client.add_root(root.uri)
+
+    async def remove_root(self, root: Root) -> bool:
+        """Remove a filesystem root.
+
+        Args:
+            root: Root object to remove
+
+        Returns:
+            True if removed, False if not found
+
+        Raises:
+            MCPClientError: If not connected
+        """
+        if not self._client:
+            raise MCPClientError("Not connected to server")
+
+        return self._client.remove_root(root.uri)
+
+    async def set_roots(self, roots: list[Root]) -> None:
+        """Set the complete list of filesystem roots.
+
+        Args:
+            roots: List of Root objects
+
+        Raises:
+            MCPClientError: If not connected
+        """
+        if not self._client:
+            raise MCPClientError("Not connected to server")
+
+        root_paths = [root.uri for root in roots]
+        self._client.set_roots(root_paths)

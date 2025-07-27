@@ -1,5 +1,6 @@
 """HTTP MCP client implementation using FastMCP's StreamableHttpTransport."""
 
+import logging
 from typing import Any
 
 from fastmcp import Client
@@ -8,6 +9,8 @@ from fastmcp.client.transports import StreamableHttpTransport
 from ..models import Prompt, Resource, ResourceTemplate, ServerInfo, Tool
 from ..models.tool import ToolParameter
 from .base import MCPClient, MCPClientError
+
+logger = logging.getLogger(__name__)
 
 
 class HttpMCPClient(MCPClient):
@@ -50,7 +53,7 @@ class HttpMCPClient(MCPClient):
         self._connected = True
 
         if self._debug:
-            print(f"[DEBUG] Connected to HTTP endpoint: {self._endpoint_url}")
+            logger.debug(f"Connected to HTTP endpoint: {self._endpoint_url}")
 
     async def disconnect(self) -> None:
         """Disconnect from MCP server."""
@@ -65,13 +68,13 @@ class HttpMCPClient(MCPClient):
                 await self._client.close()
             except Exception as e:
                 if self._debug:
-                    print(f"[DEBUG] Error closing client: {e}")
+                    logger.debug(f"Error closing client: {e}")
             self._client = None
 
         self._transport = None
 
         if self._debug:
-            print("[DEBUG] Disconnected from HTTP endpoint")
+            logger.debug("Disconnected from HTTP endpoint")
 
     async def _send_data(self, data: str) -> None:
         """Not used in this implementation - using FastMCP client methods instead."""
@@ -122,7 +125,7 @@ class HttpMCPClient(MCPClient):
                 self._server_info = ServerInfo(**server_info_data)
 
                 if self._debug:
-                    print(f"[DEBUG] Initialized server: {self._server_info.name}")
+                    logger.debug(f"Initialized server: {self._server_info.name}")
 
                 return self._server_info
         except Exception as e:
@@ -151,7 +154,7 @@ class HttpMCPClient(MCPClient):
                         input_schema_data = tool_info.get("inputSchema", {})
 
                         if self._debug:
-                            print(f"[DEBUG] Raw tool schema: {input_schema_data}")
+                            logger.debug(f"Raw tool schema: {input_schema_data}")
 
                         # The server already has properties, don't override them
                         # Just ensure our model can handle the schema
@@ -159,7 +162,7 @@ class HttpMCPClient(MCPClient):
                             input_schema_data["properties"] = {}
 
                         if self._debug:
-                            print(f"[DEBUG] Final tool schema: {input_schema_data}")
+                            logger.debug(f"Final tool schema: {input_schema_data}")
 
                         tool_parameter = ToolParameter(**input_schema_data)
                         tool = Tool(
@@ -188,7 +191,7 @@ class HttpMCPClient(MCPClient):
                 return tools
         except Exception as e:
             if self._debug:
-                print(f"[DEBUG] Error listing tools: {e}")
+                logger.debug(f"Error listing tools: {e}")
             if "timeout" in str(e).lower() or "not supported" in str(e).lower():
                 return []
             raise MCPClientError(f"Failed to list tools: {e}")
@@ -231,7 +234,7 @@ class HttpMCPClient(MCPClient):
                 return resources
         except Exception as e:
             if self._debug:
-                print(f"[DEBUG] Error listing resources: {e}")
+                logger.debug(f"Error listing resources: {e}")
             if "timeout" in str(e).lower() or "not supported" in str(e).lower() or "method not found" in str(e).lower():
                 return []
             raise MCPClientError(f"Failed to list resources: {e}")
@@ -269,7 +272,7 @@ class HttpMCPClient(MCPClient):
                 return templates
         except Exception as e:
             if self._debug:
-                print(f"[DEBUG] Error listing resource templates: {e}")
+                logger.debug(f"Error listing resource templates: {e}")
             if "timeout" in str(e).lower() or "not supported" in str(e).lower():
                 return []
             raise MCPClientError(f"Failed to list resource templates: {e}")
@@ -336,7 +339,7 @@ class HttpMCPClient(MCPClient):
                 return prompts
         except Exception as e:
             if self._debug:
-                print(f"[DEBUG] Error listing prompts: {e}")
+                logger.debug(f"Error listing prompts: {e}")
             if "timeout" in str(e).lower() or "not supported" in str(e).lower() or "method not found" in str(e).lower():
                 return []
             raise MCPClientError(f"Failed to list prompts: {e}")

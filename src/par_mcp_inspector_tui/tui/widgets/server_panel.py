@@ -116,11 +116,15 @@ class ServerPanel(Widget):
         # Update button states
         self._update_buttons()
 
-        # Update server item displays
-        server_list = self.query_one("#server-list", ListView)
-        for item in server_list.children:
-            if isinstance(item, ServerItem):
-                item._update_display()
+        # Update server item displays - but only if widget is still mounted
+        try:
+            server_list = self.query_one("#server-list", ListView)
+            for item in server_list.children:
+                if isinstance(item, ServerItem):
+                    item._update_display()
+        except Exception:
+            # Widget may be unmounted or not yet fully composed
+            pass
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle server selection."""

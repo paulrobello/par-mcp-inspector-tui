@@ -11,6 +11,7 @@ from .base import (
 )
 from .prompt import Prompt, PromptArgument, PromptMessage
 from .resource import Resource, ResourceTemplate
+from .root import Root, RootInfo, RootListChangedNotification, RootListRequest, RootListResponse
 from .server import MCPServer, ServerCapabilities, ServerInfo, ServerState
 from .tool import Tool, ToolParameter, ToolParameterProperties
 
@@ -27,6 +28,11 @@ __all__ = [
     "PromptMessage",
     "Resource",
     "ResourceTemplate",
+    "Root",
+    "RootInfo",
+    "RootListChangedNotification",
+    "RootListRequest",
+    "RootListResponse",
     "MCPServer",
     "ServerCapabilities",
     "ServerInfo",

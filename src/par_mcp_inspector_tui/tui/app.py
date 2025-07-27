@@ -17,6 +17,7 @@ from .widgets.notification_panel import NotificationPanel
 from .widgets.prompts_view import PromptsView
 from .widgets.resources_view import ResourcesView
 from .widgets.response_viewer import ResponseViewer
+from .widgets.roots_view import RootsView
 from .widgets.server_panel import ServerPanel
 from .widgets.tools_view import ToolsView
 
@@ -124,6 +125,9 @@ class MCPInspectorApp(App[None]):
                 with TabPane("Tools", id="tools-tab"):
                     yield ToolsView(self.mcp_service, id="tools-view")
 
+                with TabPane("Roots", id="roots-tab"):
+                    yield RootsView(self.mcp_service, id="roots-view")
+
                 with TabPane("Notifications", id="notifications-tab"):
                     yield self.notification_panel
 
@@ -198,6 +202,13 @@ class MCPInspectorApp(App[None]):
             pass  # Widget might not be mounted yet
 
         try:
+            # Clear roots view
+            roots_view = self.query_one("#roots-view", RootsView)
+            roots_view.clear_data()
+        except Exception:
+            pass  # Widget might not be mounted yet
+
+        try:
             # Clear response viewer
             response_viewer = self.query_one("#response-viewer", ResponseViewer)
             response_viewer.clear()
@@ -267,6 +278,9 @@ class MCPInspectorApp(App[None]):
             tools_view = self.query_one("#tools-view", ToolsView)
             tools_view.refresh()
 
+            roots_view = self.query_one("#roots-view", RootsView)
+            roots_view.refresh()
+
         except Exception as e:
             self.notify_error(f"Failed to refresh data: {e}")
             import traceback
@@ -280,6 +294,7 @@ class MCPInspectorApp(App[None]):
         - tools/list_changed: Refreshes tools view
         - resources/list_changed: Refreshes resources view
         - prompts/list_changed: Refreshes prompts view
+        - roots/list_changed: Refreshes roots view
 
         Shows success notifications when refresh completes successfully.
         """
@@ -291,6 +306,8 @@ class MCPInspectorApp(App[None]):
             self._auto_refresh_resources()
         elif notification_type == ServerNotificationType.PROMPTS_LIST_CHANGED:
             self._auto_refresh_prompts()
+        elif notification_type == ServerNotificationType.ROOTS_LIST_CHANGED:
+            self._auto_refresh_roots()
         elif notification_type == ServerNotificationType.MESSAGE:
             # Message notifications don't trigger refreshes, just display
             pass
@@ -324,6 +341,16 @@ class MCPInspectorApp(App[None]):
             self.notify_info("Prompts list refreshed automatically")
         except Exception as e:
             self.debug_log(f"Failed to auto-refresh prompts: {e}", "error")
+
+    @work
+    async def _auto_refresh_roots(self) -> None:
+        """Auto-refresh roots view."""
+        try:
+            roots_view = self.query_one("#roots-view", RootsView)
+            roots_view.refresh()
+            self.notify_info("Roots list refreshed automatically")
+        except Exception as e:
+            self.debug_log(f"Failed to auto-refresh roots: {e}", "error")
 
     def action_focus_servers(self) -> None:
         """Focus the server panel."""
@@ -435,6 +462,10 @@ class MCPInspectorApp(App[None]):
             tools_view = self.query_one("#tools-view", ToolsView)
             tools_view.mcp_service = self.mcp_service
             self.call_later(tools_view.refresh)
+
+            roots_view = self.query_one("#roots-view", RootsView)
+            roots_view.mcp_service = self.mcp_service
+            self.call_later(roots_view.refresh)
 
         except Exception:
             # Widgets might not be mounted yet, that's OK

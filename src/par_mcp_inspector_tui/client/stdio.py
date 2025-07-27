@@ -1,5 +1,6 @@
 """STDIO MCP client implementation using FastMCP's StdioTransport."""
 
+import logging
 from typing import Any
 
 import mcp.types
@@ -9,6 +10,8 @@ from fastmcp.client.transports import StdioTransport
 
 from ..models import MCPNotification, Prompt, Resource, ResourceTemplate, ServerInfo, Tool
 from .base import MCPClient, MCPClientError
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationBridge(MessageHandler):
@@ -21,7 +24,7 @@ class NotificationBridge(MessageHandler):
     async def on_notification(self, message: mcp.types.ServerNotification) -> None:
         """Handle all notifications from FastMCP and forward to our handlers."""
         if self.client._debug:
-            print(f"[DEBUG] FastMCP notification received: {message.root}")
+            logger.debug(f"FastMCP notification received: {message.root}")
 
         # Convert FastMCP notification to our MCPNotification format
         # The actual notification data is in message.root
@@ -42,22 +45,22 @@ class NotificationBridge(MessageHandler):
     async def on_tool_list_changed(self, message: mcp.types.ToolListChangedNotification) -> None:
         """Handle tool list changed notifications."""
         if self.client._debug:
-            print(f"[DEBUG] Tools list changed notification: {message}")
+            logger.debug(f"Tools list changed notification: {message}")
 
     async def on_resource_list_changed(self, message: mcp.types.ResourceListChangedNotification) -> None:
         """Handle resource list changed notifications."""
         if self.client._debug:
-            print(f"[DEBUG] Resources list changed notification: {message}")
+            logger.debug(f"Resources list changed notification: {message}")
 
     async def on_prompt_list_changed(self, message: mcp.types.PromptListChangedNotification) -> None:
         """Handle prompt list changed notifications."""
         if self.client._debug:
-            print(f"[DEBUG] Prompts list changed notification: {message}")
+            logger.debug(f"Prompts list changed notification: {message}")
 
     async def on_logging_message(self, message: mcp.types.LoggingMessageNotification) -> None:
         """Handle logging message notifications."""
         if self.client._debug:
-            print(f"[DEBUG] Logging message notification: {message}")
+            logger.debug(f"Logging message notification: {message}")
 
 
 class StdioMCPClient(MCPClient):
@@ -101,10 +104,33 @@ class StdioMCPClient(MCPClient):
 
         # Create StdioTransport with FastMCP
         if self._debug:
-            print(f"[DEBUG] Creating StdioTransport with command: {command}, args: {self._args}, env: {process_env}")
+            logger.debug(f"Creating StdioTransport with command: {command}, args: {self._args}, env: {process_env}")
 
         try:
-            self._transport = StdioTransport(command=command, args=self._args, env=process_env if process_env else None)
+            # For TUI mode (non-debug), suppress server stderr to prevent output interference
+            # In debug mode, allow stderr to go to logs for troubleshooting
+            if not self._debug:
+                # Add stderr redirection to null to prevent server output interference with TUI
+                # Some servers write status messages to stderr on startup which can bleed through
+                # to the TUI display. We redirect stderr to /dev/null to prevent this.
+                import shlex
+
+                # Build the command string with proper quoting
+                cmd_parts = [shlex.quote(command)] + [shlex.quote(arg) for arg in self._args]
+                # Only redirect stderr - stdout is needed for MCP communication
+                # but stderr often contains server status/logging messages that interfere with TUI
+                cmd_string = " ".join(cmd_parts) + " 2>/dev/null"
+
+                # Use shell wrapper to enable stderr redirection
+                logger.debug(f"Using stderr-suppressed command: {cmd_string}")
+                self._transport = StdioTransport(
+                    command="sh", args=["-c", cmd_string], env=process_env if process_env else None
+                )
+            else:
+                # In debug mode, allow stderr for troubleshooting
+                self._transport = StdioTransport(
+                    command=command, args=self._args, env=process_env if process_env else None
+                )
 
             # Create notification bridge to handle FastMCP notifications
             notification_bridge = NotificationBridge(self)
@@ -115,7 +141,7 @@ class StdioMCPClient(MCPClient):
             self._connected = True
 
             if self._debug:
-                print(f"[DEBUG] Connected to STDIO process: {command} {' '.join(self._args)}")
+                logger.debug(f"Connected to STDIO process: {command} {' '.join(self._args)}")
         except Exception as e:
             # Handle EPIPE and other subprocess errors
             if "EPIPE" in str(e) or "Broken pipe" in str(e):
@@ -135,10 +161,10 @@ class StdioMCPClient(MCPClient):
             try:
                 await self._client.close()
                 if self._debug:
-                    print("[DEBUG] FastMCP client closed successfully")
+                    logger.debug("FastMCP client closed successfully")
             except Exception as e:
                 if self._debug:
-                    print(f"[DEBUG] Error closing client: {e}")
+                    logger.debug(f"Error closing client: {e}")
             finally:
                 self._client = None
 
@@ -149,15 +175,15 @@ class StdioMCPClient(MCPClient):
                 if hasattr(self._transport, "close"):
                     await self._transport.close()
                 if self._debug:
-                    print("[DEBUG] Transport cleaned up")
+                    logger.debug("Transport cleaned up")
             except Exception as e:
                 if self._debug:
-                    print(f"[DEBUG] Error cleaning up transport: {e}")
+                    logger.debug(f"Error cleaning up transport: {e}")
             finally:
                 self._transport = None
 
         if self._debug:
-            print("[DEBUG] Disconnected from STDIO process")
+            logger.debug("Disconnected from STDIO process")
 
     async def _send_data(self, data: str) -> None:
         """Not used in this implementation - using FastMCP client methods instead."""
@@ -206,7 +232,7 @@ class StdioMCPClient(MCPClient):
                 self._server_info = ServerInfo(**server_info_data)
 
                 if self._debug:
-                    print(f"[DEBUG] Initialized server: {self._server_info.name}")
+                    logger.debug(f"Initialized server: {self._server_info.name}")
 
                 return self._server_info
         except Exception as e:
@@ -239,14 +265,14 @@ class StdioMCPClient(MCPClient):
                         input_schema_data = tool_info.get("inputSchema", {})
 
                         if self._debug:
-                            print(f"[DEBUG] Raw tool schema: {input_schema_data}")
+                            logger.debug(f"Raw tool schema: {input_schema_data}")
 
                         # The server may have properties, don't override them
                         if "properties" not in input_schema_data:
                             input_schema_data["properties"] = {}
 
                         if self._debug:
-                            print(f"[DEBUG] Final tool schema: {input_schema_data}")
+                            logger.debug(f"Final tool schema: {input_schema_data}")
 
                         # Convert dict to ToolParameter
                         from ..models.tool import ToolParameter
@@ -283,7 +309,7 @@ class StdioMCPClient(MCPClient):
                 return tools
         except Exception as e:
             if self._debug:
-                print(f"[DEBUG] Error listing tools: {e}")
+                logger.debug(f"Error listing tools: {e}")
             if "timeout" in str(e).lower() or "not supported" in str(e).lower() or "method not found" in str(e).lower():
                 return []
             # Handle EPIPE and other subprocess communication errors
@@ -329,7 +355,7 @@ class StdioMCPClient(MCPClient):
                 return resources
         except Exception as e:
             if self._debug:
-                print(f"[DEBUG] Error listing resources: {e}")
+                logger.debug(f"Error listing resources: {e}")
             if "timeout" in str(e).lower() or "not supported" in str(e).lower() or "method not found" in str(e).lower():
                 return []
             raise MCPClientError(f"Failed to list resources: {e}")
@@ -368,7 +394,7 @@ class StdioMCPClient(MCPClient):
                 return templates
         except Exception as e:
             if self._debug:
-                print(f"[DEBUG] Error listing resource templates: {e}")
+                logger.debug(f"Error listing resource templates: {e}")
             if "timeout" in str(e).lower() or "not supported" in str(e).lower() or "method not found" in str(e).lower():
                 return []
             raise MCPClientError(f"Failed to list resource templates: {e}")
@@ -436,7 +462,7 @@ class StdioMCPClient(MCPClient):
                 return prompts
         except Exception as e:
             if self._debug:
-                print(f"[DEBUG] Error listing prompts: {e}")
+                logger.debug(f"Error listing prompts: {e}")
             if "timeout" in str(e).lower() or "not supported" in str(e).lower() or "method not found" in str(e).lower():
                 return []
             raise MCPClientError(f"Failed to list prompts: {e}")

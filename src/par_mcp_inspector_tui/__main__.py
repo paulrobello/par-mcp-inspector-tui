@@ -15,7 +15,7 @@ from par_mcp_inspector_tui.tui import MCPInspectorApp
 
 from . import __application_binary__, __application_title__, __version__
 from .logging_config import get_logger, setup_logging
-from .models import MCPServer, TransportType
+from .models import MCPServer, ServerState, TransportType
 from .services import MCPService, ServerManager
 
 # Create the main Typer app with rich help
@@ -303,6 +303,176 @@ def connect_http(
     setup_logging(debug=debug, log_file=log_file)
 
     asyncio.run(_connect_arbitrary_http_server(url, verbose, debug, raw_interactions, name))
+
+
+@app.command()
+def roots_list(
+    server_id: Annotated[
+        str | None,
+        typer.Argument(help="Server ID (optional - uses current connected server if not specified)"),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed root information"),
+    ] = False,
+) -> None:
+    """List filesystem roots for a server."""
+    asyncio.run(_list_roots(server_id, verbose))
+
+
+@app.command()
+def roots_add(
+    server_id: Annotated[
+        str,
+        typer.Argument(help="Server ID"),
+    ],
+    path: Annotated[
+        str,
+        typer.Argument(help="Filesystem path or file:// URI to add as root"),
+    ],
+    name: Annotated[
+        str | None,
+        typer.Option("--name", "-n", help="Display name for the root"),
+    ] = None,
+) -> None:
+    """Add a filesystem root to a server configuration."""
+    asyncio.run(_add_root(server_id, path, name))
+
+
+@app.command()
+def roots_remove(
+    server_id: Annotated[
+        str,
+        typer.Argument(help="Server ID"),
+    ],
+    path: Annotated[
+        str,
+        typer.Argument(help="Filesystem path or file:// URI to remove"),
+    ],
+) -> None:
+    """Remove a filesystem root from a server configuration."""
+    asyncio.run(_remove_root(server_id, path))
+
+
+async def _list_roots(server_id: str | None, verbose: bool) -> None:
+    """List filesystem roots for a server."""
+    manager = ServerManager()
+
+    if server_id:
+        server = manager.get_server(server_id)
+        if not server:
+            console.print(f"[red]Server '{server_id}' not found[/red]")
+            raise typer.Exit(code=1)
+    else:
+        # Try to find currently connected server
+        servers = manager.list_servers()
+        connected_servers = [s for s in servers if s.state == ServerState.CONNECTED]
+        if not connected_servers:
+            console.print("[red]No connected servers found. Please specify a server ID.[/red]")
+            raise typer.Exit(code=1)
+        server = connected_servers[0]
+        server_id = server.id
+
+    console.print(f"[bold]Roots for server '{server.name}' ({server_id}):[/bold]")
+
+    if server.roots:
+        for i, root_path in enumerate(server.roots, 1):
+            # Check if path exists and get info
+            try:
+                from pathlib import Path
+                from urllib.parse import urlparse
+
+                # Convert file:// URI to path if needed
+                if root_path.startswith("file://"):
+                    parsed = urlparse(root_path)
+                    local_path = Path(parsed.path)
+                else:
+                    local_path = Path(root_path)
+
+                status = "✓" if local_path.exists() else "✗"
+                type_info = ""
+                if verbose and local_path.exists():
+                    if local_path.is_dir():
+                        type_info = " (directory)"
+                    elif local_path.is_file():
+                        type_info = " (file)"
+
+                console.print(f"  {i}. {status} {root_path}{type_info}")
+            except Exception:
+                console.print(f"  {i}. ? {root_path} (invalid path)")
+    else:
+        console.print("  [dim]No roots configured[/dim]")
+
+
+async def _add_root(server_id: str, path: str, name: str | None) -> None:
+    """Add a root to a server configuration."""
+    manager = ServerManager()
+    server = manager.get_server(server_id)
+
+    if not server:
+        console.print(f"[red]Server '{server_id}' not found[/red]")
+        raise typer.Exit(code=1)
+
+    # Convert to file:// URI if it's a local path
+    if not path.startswith("file://"):
+        from pathlib import Path
+
+        abs_path = Path(path).resolve()
+        uri = f"file://{abs_path}"
+    else:
+        uri = path
+
+    # Initialize roots list if None
+    if server.roots is None:
+        server.roots = []
+
+    # Check if already exists
+    if uri in server.roots:
+        console.print(f"[yellow]Root already exists: {uri}[/yellow]")
+        return
+
+    # Add the root
+    server.roots.append(uri)
+    manager.save()
+
+    console.print(f"[green]Added root to server '{server.name}': {uri}[/green]")
+
+    if name:
+        console.print(f"[dim]Note: Display name '{name}' will be used in the UI[/dim]")
+
+
+async def _remove_root(server_id: str, path: str) -> None:
+    """Remove a root from a server configuration."""
+    manager = ServerManager()
+    server = manager.get_server(server_id)
+
+    if not server:
+        console.print(f"[red]Server '{server_id}' not found[/red]")
+        raise typer.Exit(code=1)
+
+    if not server.roots:
+        console.print(f"[yellow]No roots configured for server '{server.name}'[/yellow]")
+        return
+
+    # Convert to file:// URI if it's a local path
+    if not path.startswith("file://"):
+        from pathlib import Path
+
+        abs_path = Path(path).resolve()
+        uri = f"file://{abs_path}"
+    else:
+        uri = path
+
+    # Try to remove
+    if uri in server.roots:
+        server.roots.remove(uri)
+        manager.save()
+        console.print(f"[green]Removed root from server '{server.name}': {uri}[/green]")
+    else:
+        console.print(f"[yellow]Root not found: {uri}[/yellow]")
+        console.print("[dim]Available roots:[/dim]")
+        for root in server.roots:
+            console.print(f"  - {root}")
 
 
 async def _connect_arbitrary_server(

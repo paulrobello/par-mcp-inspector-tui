@@ -20,6 +20,7 @@ class ServerNotificationType(str, Enum):
     TOOLS_LIST_CHANGED = "notifications/tools/list_changed"
     RESOURCES_LIST_CHANGED = "notifications/resources/list_changed"
     PROMPTS_LIST_CHANGED = "notifications/prompts/list_changed"
+    ROOTS_LIST_CHANGED = "notifications/roots/list_changed"
     MESSAGE = "notifications/message"
 
 

@@ -16,6 +16,9 @@ flowchart TD
     B -->|debug| F[Debug Configured Server]
     B -->|servers| G[List Servers]
     B -->|download-resource| H[Download Resource<br/>CLI Command]
+    B -->|roots-list| Z[List Filesystem Roots]
+    B -->|roots-add| Y[Add Filesystem Root]
+    B -->|roots-remove| X[Remove Filesystem Root]
 
     C --> I[Server Manager<br/>Load Configuration]
     C --> J[MCP Service<br/>Connection Management]
@@ -25,6 +28,10 @@ flowchart TD
     H --> J
     H --> AA[File Type Detection<br/>Magic Numbers]
     H --> BB[File Download<br/>Auto-naming]
+    
+    Z --> I
+    Y --> I  
+    X --> I
 
     I --> L[servers.yaml<br/>Configuration]
 
@@ -41,8 +48,9 @@ flowchart TD
     K --> U[Resources View]
     K --> V[Tools View]
     K --> W[Prompts View]
-    K --> X[Notifications View]
-    K --> Y[Response Viewer]
+    K --> ZZ[Roots View]
+    K --> XX[Notifications View]
+    K --> YY[Response Viewer]
 
     U --> AA
     U --> BB
@@ -70,8 +78,12 @@ flowchart TD
     style U fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style V fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style W fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style X fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style Y fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style ZZ fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style XX fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style YY fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style X fill:#dc2626,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style Y fill:#dc2626,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style Z fill:#dc2626,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style AA fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style BB fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
 ```
@@ -104,6 +116,7 @@ flowchart TB
         I[Resources Tab<br/>Browse & Read]
         J[Tools Tab<br/>Execute Tools]
         K[Prompts Tab<br/>Execute Prompts]
+        NN[Roots Tab<br/>Manage Filesystem Roots]
         L[Notifications Tab<br/>Server Notifications]
     end
 
@@ -122,6 +135,7 @@ flowchart TB
     E --> I
     E --> J
     E --> K
+    E --> NN
     E --> L
 
     F --> M
@@ -137,6 +151,7 @@ flowchart TB
     style I fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style J fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style K fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style NN fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style L fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style M fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
 ```
@@ -191,6 +206,23 @@ sequenceDiagram
     F-->>C: Parsed Prompts List
     C-->>S: Prompt Objects
     S-->>U: Update Prompts View
+
+    Note over U,M: Roots Management via MCP Client
+
+    U->>S: Get Roots
+    S->>C: get_roots()
+    C-->>S: Current Roots List
+    S-->>U: Update Roots View
+
+    U->>S: Add Root
+    S->>C: add_root(uri)
+    C-->>S: Root Added
+    S-->>U: Refresh Roots Display
+
+    U->>S: Remove Root
+    S->>C: remove_root(uri)
+    C-->>S: Root Removed
+    S-->>U: Refresh Roots Display
 
     Note over U,M: Tool Execution via FastMCP
 

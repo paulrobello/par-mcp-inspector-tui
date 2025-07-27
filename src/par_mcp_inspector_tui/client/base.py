@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from os import path
@@ -17,6 +18,8 @@ from ..models import (
     ServerInfo,
     Tool,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class MCPClientError(Exception):
@@ -93,20 +96,20 @@ class MCPClient(ABC):
         # Send request
         request_json = request.model_dump_json() + "\n"
         if self._debug:
-            print(f"[DEBUG] Sending: {request_json.strip()}")
+            logger.debug(f"Sending: {request_json.strip()}")
         await self._send_data(request_json)
 
         # Wait for response with timeout
         try:
             response = await asyncio.wait_for(future, timeout=10.0)
             if self._debug:
-                print(f"[DEBUG] Received: {response.model_dump_json()}")
+                logger.debug(f"Received: {response.model_dump_json()}")
             if response.error:
                 raise MCPClientError(f"Server error: {response.error.message}")
             return response
         except TimeoutError:
             if self._debug:
-                print(f"[DEBUG] Timeout waiting for response to {method}")
+                logger.debug(f"Timeout waiting for response to {method}")
             raise MCPClientError(f"Timeout waiting for response to {method}")
         finally:
             self._pending_requests.pop(request_id, None)
@@ -116,7 +119,7 @@ class MCPClient(ABC):
         notification = MCPNotification(method=method, params=params)
         notification_json = notification.model_dump_json() + "\n"
         if self._debug:
-            print(f"[DEBUG] Sending notification: {notification_json.strip()}")
+            logger.debug(f"Sending notification: {notification_json.strip()}")
         await self._send_data(notification_json)
 
     async def _handle_incoming_data(self, data: str) -> None:
@@ -125,19 +128,19 @@ class MCPClient(ABC):
             message = json.loads(data)
 
             if self._debug:
-                print(f"[DEBUG] Raw incoming: {data.strip()}")
+                logger.debug(f"Raw incoming: {data.strip()}")
 
             # Check if it's a response
             if "id" in message and ("result" in message or "error" in message):
                 response = MCPResponse(**message)
                 if self._debug:
-                    print(
-                        f"[DEBUG] Processing response for ID {response.id}, pending: {list(self._pending_requests.keys())}"
+                    logger.debug(
+                        f"Processing response for ID {response.id}, pending: {list(self._pending_requests.keys())}"
                     )
                 if response.id in self._pending_requests:
                     self._pending_requests[response.id].set_result(response)
                 else:
-                    print(f"Warning: Received response for unknown request ID: {response.id}")
+                    logger.warning(f"Received response for unknown request ID: {response.id}")
 
             # Check if it's a request from server
             elif "id" in message and "method" in message:
@@ -150,7 +153,7 @@ class MCPClient(ABC):
 
         except Exception as e:
             # Log error but don't crash
-            print(f"Error handling incoming data: {e}")
+            logger.error(f"Error handling incoming data: {e}")
 
     async def _handle_request(self, message: dict[str, Any]) -> None:
         """Handle incoming request from server."""
@@ -158,7 +161,7 @@ class MCPClient(ABC):
         method = message["method"]
 
         if self._debug:
-            print(f"[DEBUG] Received request: {method}")
+            logger.debug(f"Received request: {method}")
 
         try:
             if method == "roots/list":
@@ -173,7 +176,7 @@ class MCPClient(ABC):
                 response = {"jsonrpc": "2.0", "id": request_id, "result": {"roots": roots}}
 
                 if self._debug:
-                    print(f"[DEBUG] Sending roots response: {json.dumps(response)}")
+                    logger.debug(f"Sending roots response: {json.dumps(response)}")
 
                 await self._send_data(json.dumps(response) + "\n")
             else:
@@ -201,17 +204,17 @@ class MCPClient(ABC):
         updates for tools, resources, prompts changes and messages.
         """
         if self._debug:
-            print(f"[DEBUG] Received notification: {notification.method}")
+            logger.debug(f"Received notification: {notification.method}")
 
         handlers = self._notification_handlers.get(notification.method, [])
         if self._debug:
-            print(f"[DEBUG] Found {len(handlers)} handlers for {notification.method}")
+            logger.debug(f"Found {len(handlers)} handlers for {notification.method}")
 
         for handler in handlers:
             try:
                 handler(notification)
             except Exception as e:
-                print(f"Error in notification handler: {e}")
+                logger.error(f"Error in notification handler: {e}")
 
     def on_notification(self, method: str, handler: Callable[[MCPNotification], None]) -> None:
         """Register a notification handler."""
@@ -394,3 +397,71 @@ class MCPClient(ABC):
             },
         )
         return response.result
+
+    def get_roots(self) -> list[dict[str, Any]]:
+        """Get current filesystem roots."""
+        roots = []
+        for root_path in self._roots:
+            # Convert to absolute path and file:// URI
+            abs_path = path.abspath(root_path)
+            file_uri = f"file://{abs_path}"
+            roots.append({"uri": file_uri, "name": path.basename(abs_path) or abs_path})
+        return roots
+
+    def add_root(self, root_path: str) -> None:
+        """Add a new filesystem root."""
+        # Convert file:// URI to local path if needed
+        if root_path.startswith("file://"):
+            from urllib.parse import urlparse
+
+            parsed = urlparse(root_path)
+            root_path = parsed.path
+
+        # Add to roots if not already present
+        abs_path = path.abspath(root_path)
+        if abs_path not in self._roots:
+            self._roots.append(abs_path)
+            # Send notification to server about roots change
+            asyncio.create_task(self._notify_roots_changed())
+
+    def remove_root(self, root_path: str) -> bool:
+        """Remove a filesystem root. Returns True if removed, False if not found."""
+        # Convert file:// URI to local path if needed
+        if root_path.startswith("file://"):
+            from urllib.parse import urlparse
+
+            parsed = urlparse(root_path)
+            root_path = parsed.path
+
+        abs_path = path.abspath(root_path)
+        if abs_path in self._roots:
+            self._roots.remove(abs_path)
+            # Send notification to server about roots change
+            asyncio.create_task(self._notify_roots_changed())
+            return True
+        return False
+
+    def set_roots(self, root_paths: list[str]) -> None:
+        """Set the complete list of filesystem roots."""
+        new_roots = []
+        for root_path in root_paths:
+            # Convert file:// URI to local path if needed
+            if root_path.startswith("file://"):
+                from urllib.parse import urlparse
+
+                parsed = urlparse(root_path)
+                root_path = parsed.path
+            new_roots.append(path.abspath(root_path))
+
+        self._roots = new_roots
+        # Send notification to server about roots change
+        asyncio.create_task(self._notify_roots_changed())
+
+    async def _notify_roots_changed(self) -> None:
+        """Send notification to server that roots list has changed."""
+        if self._connected:
+            try:
+                await self._send_notification("notifications/roots/list_changed")
+            except Exception as e:
+                if self._debug:
+                    logger.debug(f"Failed to send roots changed notification: {e}")

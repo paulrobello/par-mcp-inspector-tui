@@ -5,7 +5,7 @@
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-0.3.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.4.0-green.svg)
 ![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
@@ -21,6 +21,7 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 ## Features
 
 - **Multiple Transport Support**: Connect to MCP servers via STDIO and HTTP+SSE
+- **MCP Roots Support**: Full implementation of MCP filesystem roots protocol with TUI and CLI management
 - **CLI Debugging Tools**: Connect to arbitrary servers and inspect interactions without configuration
 - **Resource Download CLI**: Download resources by name with automatic file type detection
 - **Real-time Introspection**: Discover tools, prompts, and resources from connected servers
@@ -140,6 +141,11 @@ pmit connect-tcp localhost 3333
 
 # Download resources from servers
 pmit download-resource <server-id> <resource-name>
+
+# Manage filesystem roots for servers
+pmit roots-list [server-id]
+pmit roots-add <server-id> <path>
+pmit roots-remove <server-id> <path>
 ```
 
 If running from source:
@@ -170,6 +176,11 @@ uv run pmit connect-tcp localhost 3333
 
 # Download resources from servers
 uv run pmit download-resource <server-id> <resource-name>
+
+# Manage filesystem roots for servers
+uv run pmit roots-list [server-id]
+uv run pmit roots-add <server-id> <path>
+uv run pmit roots-remove <server-id> <path>
 ```
 
 ### TUI Application
@@ -398,6 +409,116 @@ pmit download-resource image-server "logo.png" --output ./assets
 uv run pmit download-resource Everything "Resource 1"
 ```
 
+### `roots-list` - List Filesystem Roots
+```shell
+# If installed from PyPI
+pmit roots-list [SERVER_ID] [OPTIONS]
+
+# If running from source
+uv run pmit roots-list [SERVER_ID] [OPTIONS]
+```
+
+**Arguments:**
+- `server-id`: Server ID (optional - uses current connected server if not specified)
+
+**Options:**
+- `--verbose -v`: Show detailed root information including path validation and type
+
+**Features:**
+- **Automatic Server Detection**: If no server ID provided, uses the currently connected server
+- **Path Validation**: Shows ✓ for existing paths, ✗ for missing paths
+- **Type Detection**: Displays whether paths are directories or files (with `--verbose`)
+- **URI Support**: Handles both local paths and `file://` URIs
+- **Clear Display**: Numbered list with status indicators
+
+**Examples:**
+```shell
+# List roots for connected server (PyPI installation)
+pmit roots-list
+
+# List roots for specific server with details
+pmit roots-list my-server-id --verbose
+
+# From source
+uv run pmit roots-list
+uv run pmit roots-list my-server-id --verbose
+```
+
+### `roots-add` - Add Filesystem Root
+```shell
+# If installed from PyPI
+pmit roots-add <server-id> <path> [OPTIONS]
+
+# If running from source
+uv run pmit roots-add <server-id> <path> [OPTIONS]
+```
+
+**Arguments:**
+- `server-id`: Server ID (required)
+- `path`: Filesystem path or `file://` URI to add as root (required)
+
+**Options:**
+- `--name -n`: Display name for the root (used in TUI interface)
+
+**Features:**
+- **Automatic URI Conversion**: Converts local paths to proper `file://` URIs
+- **Duplicate Prevention**: Prevents adding the same root path multiple times
+- **Path Resolution**: Automatically resolves relative paths to absolute paths
+- **Persistent Storage**: Saves roots to server configuration immediately
+- **Display Name Support**: Optional display names for better TUI presentation
+
+**Examples:**
+```shell
+# Add current directory as root (PyPI installation)
+pmit roots-add my-server-id . --name "Project Root"
+
+# Add absolute path
+pmit roots-add my-server-id /home/user/documents
+
+# Add with file:// URI
+pmit roots-add my-server-id file:///tmp/workspace --name "Workspace"
+
+# From source
+uv run pmit roots-add my-server-id . --name "Project Root"
+uv run pmit roots-add my-server-id /home/user/documents
+```
+
+### `roots-remove` - Remove Filesystem Root
+```shell
+# If installed from PyPI
+pmit roots-remove <server-id> <path>
+
+# If running from source
+uv run pmit roots-remove <server-id> <path>
+```
+
+**Arguments:**
+- `server-id`: Server ID (required)
+- `path`: Filesystem path or `file://` URI to remove (required)
+
+**Features:**
+- **Flexible Path Matching**: Accepts both local paths and `file://` URIs
+- **Automatic URI Conversion**: Converts local paths to URIs for matching
+- **Path Resolution**: Resolves relative paths to match stored absolute paths
+- **Not Found Handling**: Shows available roots if specified path not found
+- **Immediate Persistence**: Updates server configuration immediately
+
+**Examples:**
+```shell
+# Remove by local path (PyPI installation)
+pmit roots-remove my-server-id /tmp/workspace
+
+# Remove by file:// URI
+pmit roots-remove my-server-id file:///home/user/documents
+
+# Remove relative path (resolved automatically)
+pmit roots-remove my-server-id ../parent-dir
+
+# From source
+uv run pmit roots-remove my-server-id /tmp/workspace
+uv run pmit roots-remove my-server-id file:///home/user/documents
+```
+
 ## Server Configuration
 
 The TUI application stores server configurations in `~/.config/mcp-inspector/servers.yaml`. Example configuration:
@@ -415,17 +536,26 @@ servers:
     env:
       NODE_ENV: "production"
     toast_notifications: true  # Show toast notifications (default: true)
+    roots:  # MCP filesystem roots (optional)
+      - "file:///tmp"
+      - "file:///home/user/documents"
+      - "file:///var/log"
 
   http-mcp-server:
     name: "HTTP MCP Server"
     transport: "http"
     url: "https://api.example.com/mcp"
     toast_notifications: true  # Show toast notifications for this server
+    roots:  # Roots can be specified for any transport type
+      - "file:///workspace/project"
+      - "file:///shared/resources"
 ```
 
 #### Configuration Options
 
 - **toast_notifications** (boolean, default: true): Controls whether to show toast popup notifications when the server sends notifications. When `false`, notifications are still added to the notifications tab but won't show as toast popups. Note: Toasts are automatically suppressed when viewing the notifications tab regardless of this setting.
+
+- **roots** (array of strings, optional): List of filesystem roots that define the boundaries of filesystem access for MCP servers. Each root should be a `file://` URI pointing to a directory or file. These roots are sent to the server during connection to establish filesystem boundaries according to the MCP roots protocol. Roots can be managed through the TUI interface (Roots tab) or via CLI commands (`roots-add`, `roots-remove`, `roots-list`).
 
 #### UI Configuration
 
@@ -487,6 +617,7 @@ servers:
   - **Resources**: Browse and read available resources
   - **Prompts**: Execute prompts with dynamic argument forms and validation
   - **Tools**: Call tools with smart parameter validation and form controls
+  - **Roots**: Manage filesystem roots for MCP server access boundaries
   - **Notifications**: Real-time server notifications with auto-refresh capabilities
 - **Right Panel**: Response viewer with formatted output and syntax highlighting
 
@@ -513,6 +644,30 @@ servers:
   - Enable/disable through Add/Edit Server dialogs
   - Automatic suppression when viewing notifications tab
   - Real-time configuration updates without restart
+
+### Filesystem Roots Management
+
+The **Roots** tab provides comprehensive management of filesystem boundaries for MCP servers:
+
+**Root Management Features:**
+- **Add New Roots**: Click "Add Root" to add filesystem paths or `file://` URIs
+- **Remove Roots**: Select roots and click "Remove Root" to delete them
+- **Path Validation**: Real-time status indicators show if root paths exist (✓/✗)
+- **Type Display**: Shows whether roots are directories, files, or URIs
+- **Server Integration**: Roots are automatically sent to servers during connection
+- **Persistent Storage**: Root configurations are saved with server settings
+
+**Root Display Format:**
+- **Status Indicator**: ✓ (exists), ✗ (missing), or ? (unknown)
+- **Path Information**: Shows the full `file://` URI or local path
+- **Type Information**: (directory), (file), or (URI) designations
+- **Organized List**: Clean, numbered display of all configured roots
+
+**MCP Protocol Integration:**
+- **Automatic Transmission**: Roots are sent to servers during connection establishment
+- **Protocol Compliance**: Implements MCP `roots/list` protocol specification
+- **Boundary Enforcement**: Servers use roots to restrict filesystem access
+- **Notification Support**: Responds to `notifications/roots/list_changed` from servers
 
 ### Server Management
 
@@ -675,6 +830,24 @@ Use 'download-resource my-server-id "<resource-name>"' to download any resource
 Use `--verbose` flag to see raw JSON responses and detailed debugging information.
 
 ## Changelog
+
+### v0.4.0 - MCP Roots Protocol & Enhanced Filesystem Support
+- **🌿 MCP Roots Protocol Implementation**: Full support for MCP filesystem roots protocol
+- **📁 Comprehensive Roots Management**: Complete TUI and CLI interface for managing filesystem boundaries
+- **🎛️ Roots Tab in TUI**: Dedicated interface for visual root management with real-time validation
+- **⚡ CLI Root Commands**: Three new commands for root management:
+  - `pmit roots-list [server-id] [--verbose]` - List and validate filesystem roots
+  - `pmit roots-add <server-id> <path> [--name]` - Add roots with display names
+  - `pmit roots-remove <server-id> <path>` - Remove roots with flexible path matching
+- **🔒 Automatic Root Transmission**: Roots are automatically sent to servers during connection
+- **✅ Path Validation**: Real-time validation with status indicators (✓/✗) for root paths
+- **🔄 Protocol Compliance**: Implements `roots/list` and `notifications/roots/list_changed` protocols
+- **📊 Enhanced Server Configuration**: Persistent root storage in server configurations
+- **🛠️ Developer Features**: URI conversion, path resolution, and comprehensive testing support
+- **🐛 Bug Fixes**:
+  - Fixed server panel widget error with #server-list query during state changes
+  - Enhanced error handling for widget lifecycle management
+  - Improved stderr output suppression for cleaner TUI display
 
 ### v0.3.0 - FastMCP Integration & Major Improvements
 - **🔥 Major Architecture Overhaul**: Migrated to FastMCP for robust, high-performance MCP protocol handling

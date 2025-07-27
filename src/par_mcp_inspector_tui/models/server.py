@@ -52,6 +52,7 @@ class MCPServer(BaseModel):
     port: int | None = None  # For TCP transport
     url: str | None = None  # For HTTP transport
     env: dict[str, str] | None = None
+    roots: list[str] | None = None  # Filesystem roots for the server
     toast_notifications: bool = True  # Show toast notifications for server notifications
     state: ServerState = ServerState.DISCONNECTED
     info: ServerInfo | None = None
