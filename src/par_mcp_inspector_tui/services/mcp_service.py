@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from ..client import MCPClient, MCPClientError, StdioMCPClient, TcpMCPClient
+from ..client import HttpMCPClient, MCPClient, MCPClientError, StdioMCPClient, TcpMCPClient
 from ..models import (
     MCPNotification,
     MCPServer,
@@ -161,6 +161,11 @@ class MCPService:
                     await self._client.connect(
                         host=server.host or "localhost",
                         port=server.port or 3333,
+                    )
+                elif server.transport == TransportType.HTTP:
+                    self._client = HttpMCPClient(debug=self._debug, roots=self._roots)
+                    await self._client.connect(
+                        url=server.url or "",
                     )
                 else:
                     raise MCPClientError(f"Unsupported transport: {server.transport}")

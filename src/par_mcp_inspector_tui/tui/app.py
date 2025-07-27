@@ -52,6 +52,7 @@ class MCPInspectorApp(App[None]):
         self.server_manager = ServerManager()
         self.notification_panel = NotificationPanel()
         self.debug_enabled = debug
+        self._shutting_down = False
 
         # Set up debug logging to file only if debug is enabled
         if debug:
@@ -139,15 +140,69 @@ class MCPInspectorApp(App[None]):
         self.mcp_service.on_state_change(self._on_connection_state_change)
         self.mcp_service.on_server_notification(self._on_server_notification)
 
+    async def on_unmount(self) -> None:
+        """Clean up when app is shutting down."""
+        # Set shutdown flag to suppress callbacks during teardown
+        self._shutting_down = True
+
+        if self.debug:
+            self.debug_log("App shutting down, disconnecting from MCP server...")
+
+        # Disconnect from MCP server to clean up subprocess connections
+        if self.mcp_service.connected:
+            try:
+                await self.mcp_service.disconnect()
+                if self.debug:
+                    self.debug_log("Successfully disconnected from MCP server")
+            except Exception as e:
+                if self.debug:
+                    self.debug_log(f"Error during shutdown disconnect: {e}")
+
     def _on_connection_state_change(self, state: ServerState) -> None:
         """Handle connection state changes."""
+        # Skip callbacks during shutdown to avoid UI update errors
+        if self._shutting_down:
+            return
+
         if state == ServerState.CONNECTED:
             self.notify_success("Connected to MCP server")
             self._refresh_server_data()
         elif state == ServerState.DISCONNECTED:
             self.notify_info("Disconnected from MCP server")
+            self._clear_all_tabs()
         elif state == ServerState.ERROR:
             self.notify_error("Connection error")
+            self._clear_all_tabs()
+
+    def _clear_all_tabs(self) -> None:
+        """Clear all tab content when disconnecting from server."""
+        try:
+            # Clear resources view
+            resources_view = self.query_one("#resources-view", ResourcesView)
+            resources_view.clear_data()
+        except Exception:
+            pass  # Widget might not be mounted yet
+
+        try:
+            # Clear tools view
+            tools_view = self.query_one("#tools-view", ToolsView)
+            tools_view.clear_data()
+        except Exception:
+            pass  # Widget might not be mounted yet
+
+        try:
+            # Clear prompts view
+            prompts_view = self.query_one("#prompts-view", PromptsView)
+            prompts_view.clear_data()
+        except Exception:
+            pass  # Widget might not be mounted yet
+
+        try:
+            # Clear response viewer
+            response_viewer = self.query_one("#response-viewer", ResponseViewer)
+            response_viewer.clear()
+        except Exception:
+            pass  # Widget might not be mounted yet
 
     def _on_server_notification(self, server_notification: ServerNotification) -> None:
         """Handle server notification callback from MCP service.
@@ -158,6 +213,10 @@ class MCPInspectorApp(App[None]):
         - All notifications are shown with server context and timestamp
         - Toast notifications respect server config and current tab
         """
+        # Skip callbacks during shutdown to avoid UI update errors
+        if self._shutting_down:
+            return
+
         # Add to notification panel
         self.notification_panel.add_server_notification(server_notification)
 

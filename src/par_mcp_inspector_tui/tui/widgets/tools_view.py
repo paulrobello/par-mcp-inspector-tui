@@ -101,6 +101,18 @@ class ToolsView(Widget):
         except Exception as e:
             self.app.notify_error(f"Failed to fetch tools: {e}")
 
+    def clear_data(self) -> None:
+        """Clear all tools data and display."""
+        self.tools = []
+        self.selected_tool = None
+        self._update_display()
+        # Clear form and disable execute button
+        try:
+            form_container = self.query_one("#form-container")
+            form_container.remove_children()
+        except Exception:
+            pass  # Container might not exist yet
+
     def _update_display(self) -> None:
         """Update the tools display."""
         tools_list = self.query_one("#tools-list", ListView)
@@ -227,7 +239,8 @@ class ToolsView(Widget):
 
             # Show result in response viewer
             if result:
-                content = result.get("content", [])
+                # FastMCP returns CallToolResult objects with attributes, not dict
+                content = getattr(result, "content", [])
                 self.app.debug_log(f"Result content: {content}, type: {type(content)}")
 
                 if content and isinstance(content, list) and len(content) > 0:
@@ -235,11 +248,22 @@ class ToolsView(Widget):
                     formatted_content = []
                     for i, item in enumerate(content):
                         self.app.debug_log(f"Processing content item {i}: {item}, type: {type(item)}")
-                        if isinstance(item, dict):
+
+                        # Handle both object and dict formats for content items
+                        if hasattr(item, "type") and hasattr(item, "text"):
+                            # It's a content object
+                            if getattr(item, "type", None) == "text":
+                                text = getattr(item, "text", "")
+                                formatted_content.append(text)
+                                self.app.debug_log(f"Extracted text from object: {text[:100]}...")
+                            else:
+                                formatted_content.append(str(item))
+                        elif isinstance(item, dict):
+                            # It's a dictionary
                             if item.get("type") == "text":
                                 text = item.get("text", "")
                                 formatted_content.append(text)
-                                self.app.debug_log(f"Extracted text: {text[:100]}...")
+                                self.app.debug_log(f"Extracted text from dict: {text[:100]}...")
                             else:
                                 formatted_content.append(str(item))
                         else:

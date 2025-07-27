@@ -5,6 +5,7 @@
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
+![Version](https://img.shields.io/badge/version-0.3.0-green.svg)
 ![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
@@ -19,7 +20,7 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 
 ## Features
 
-- **Multiple Transport Support**: Connect to MCP servers via STDIO and TCP
+- **Multiple Transport Support**: Connect to MCP servers via STDIO and HTTP+SSE
 - **CLI Debugging Tools**: Connect to arbitrary servers and inspect interactions without configuration
 - **Resource Download CLI**: Download resources by name with automatic file type detection
 - **Real-time Introspection**: Discover tools, prompts, and resources from connected servers
@@ -32,10 +33,12 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 - **Non-blocking Operations**: Async communication ensuring responsive UI
 - **Server Notifications**: Real-time notifications from MCP servers with auto-refresh capabilities
 - **Application Notifications**: Real-time status updates and error handling
+- **Tab Auto-clearing**: Automatically clears all tabs when disconnecting from servers
 - **Capability-aware**: Gracefully handles servers with partial MCP implementation
 
 ## Technology Stack
 - **Python 3.11+** - Modern Python with latest features
+- **FastMCP** - High-performance Model Context Protocol implementation with robust transport layer
 - **Textual** - Beautiful, responsive terminal user interfaces
 - **Pydantic** - Data validation and serialization
 - **Rich** - Terminal output formatting and syntax highlighting
@@ -189,7 +192,9 @@ uv run pmit tui --debug
 ### First Time Setup
 
 1. **Launch the application**: `pmit tui` (or `uv run pmit tui` if running from source)
-2. **Default servers**: The application comes with example server configurations
+2. **Default servers**: The application comes with working example server configurations:
+   - **Example STDIO Server**: Filesystem server for `/tmp` directory
+   - **Everything**: Comprehensive test server with tools, resources, and notifications
 3. **Add your servers**: Use the "Add Server" button to configure your MCP servers
 4. **Connect**: Select a server from the list and click "Connect"
 5. **Explore**: Browse resources, prompts, and tools in the tabbed interface
@@ -411,12 +416,11 @@ servers:
       NODE_ENV: "production"
     toast_notifications: true  # Show toast notifications (default: true)
 
-  custom-tcp-server:
-    name: "Custom TCP Server"
-    transport: "tcp"
-    host: "localhost"
-    port: 3333
-    toast_notifications: false  # Disable toast notifications for this server
+  http-mcp-server:
+    name: "HTTP MCP Server"
+    transport: "http"
+    url: "https://api.example.com/mcp"
+    toast_notifications: true  # Show toast notifications for this server
 ```
 
 #### Configuration Options
@@ -434,8 +438,8 @@ You can configure toast notifications through the TUI interface:
 
 ### Supported Transport Types
 
-#### STDIO Transport
-For servers that communicate via standard input/output:
+#### STDIO Transport (Recommended)
+For servers that communicate via standard input/output (most common):
 ```yaml
 servers:
   my-stdio-server:
@@ -448,8 +452,18 @@ servers:
       DEBUG: "1"
 ```
 
-#### TCP Transport
-For servers running on a network port:
+#### HTTP Transport
+For HTTP-based MCP servers with SSE (Server-Sent Events) support:
+```yaml
+servers:
+  my-http-server:
+    name: "My HTTP MCP Server"
+    transport: "http"
+    url: "https://api.example.com/mcp"
+```
+
+#### TCP Transport (Legacy HTTP+SSE)
+For backward compatibility with HTTP-based MCP servers:
 ```yaml
 servers:
   my-tcp-server:
@@ -458,6 +472,12 @@ servers:
     host: "localhost"
     port: 8080
 ```
+
+**Important Notes**:
+- **STDIO transport** is recommended for most MCP servers (filesystem, everything, etc.)
+- **HTTP transport** is for servers with full HTTP URLs
+- **TCP transport** actually uses HTTP+SSE protocol, not raw TCP sockets
+- Use HTTP/TCP transports only for servers that explicitly support HTTP+SSE protocol
 
 ## User Interface
 
@@ -509,8 +529,11 @@ The server configuration dialog provides comprehensive settings for MCP servers:
 - **Arguments**: Command-line arguments (one per line)
 - **Environment Variables**: KEY=value pairs (one per line)
 
-**TCP Transport Settings:**
-- **Host**: Server hostname or IP address
+**HTTP Transport Settings:**
+- **URL**: Complete HTTP/HTTPS URL to the MCP server endpoint
+
+**TCP Transport Settings (Legacy):**
+- **Host**: Server hostname or IP address  
 - **Port**: Network port number (1-65535)
 
 **Notification Settings:**
@@ -651,6 +674,31 @@ Use 'download-resource my-server-id "<resource-name>"' to download any resource
 
 Use `--verbose` flag to see raw JSON responses and detailed debugging information.
 
+## Changelog
+
+### v0.3.0 - FastMCP Integration & Major Improvements
+- **🔥 Major Architecture Overhaul**: Migrated to FastMCP for robust, high-performance MCP protocol handling
+- **✨ Enhanced Transport Support**: Added HTTP+SSE transport alongside improved STDIO transport  
+- **🧹 Tab Auto-clearing**: Automatically clears all tabs when disconnecting from servers for clean state management
+- **🔧 Improved Error Handling**: Enhanced connection error reporting and recovery with FastMCP integration
+- **📋 Real-time Notifications**: Fixed and enhanced MCP server notifications with FastMCP's MessageHandler system
+- **🎯 Configuration Cleanup**: Removed problematic TCP server examples from default setup
+- **📚 Comprehensive Documentation**: Updated all documentation and architecture diagrams to reflect FastMCP integration
+- **🐛 Bug Fixes**:
+  - Fixed resource reading errors with FastMCP's object-based responses
+  - Fixed prompt and tool execution compatibility issues
+  - Fixed app shutdown callback errors
+  - Resolved all type checking errors across transport implementations
+- **⚡ Performance**: Connection reuse enabled by default for better performance
+- **🔒 Stability**: Enhanced subprocess management and cleanup for STDIO transport
+
+**🔄 Migration Note**: Existing users may have legacy server configurations. Use the [Clean Installation](#clean-installation) steps if you encounter connection issues with old TCP server examples.
+
+### v0.2.0 - Previous Release
+- Initial stable release with custom MCP implementation
+- Basic STDIO and TCP transport support
+- TUI interface with resource, tool, and prompt management
+
 ## Development
 
 ### Setup Development Environment
@@ -688,15 +736,51 @@ uv sync -U
 uv build
 ```
 
+### Clean Installation
+
+To start with a completely clean configuration (removes any problematic legacy servers):
+
+```shell
+# Remove existing configuration
+rm ~/.config/par-mcp-inspector-tui/servers.yaml
+
+# Launch app - will create new default configuration
+pmit tui
+```
+
 ## Architecture Overview
 
-For detailed architectural diagrams showing the application flow, component structure, protocol communication, and data flow, see the [Architecture Diagrams](docs/diagrams.md) document.
+The application is built on a modern, layered architecture leveraging **FastMCP** as the core Model Context Protocol implementation. This provides robust transport handling, automatic serialization, and real-time notification support.
+
+### Key Architectural Components
+
+#### FastMCP Integration
+- **StdioTransport**: Handles subprocess communication with automatic process lifecycle management
+- **WSTransport**: Manages WebSocket connections for TCP-based MCP servers  
+- **NotificationBridge**: Custom bridge that adapts FastMCP's `MessageHandler` system to our notification architecture
+- **Automatic Protocol Handling**: JSON-RPC 2.0 serialization, error handling, and capability negotiation
+
+#### Transport Layer Architecture
+- **STDIO Transport**: Uses FastMCP's `StdioTransport` with a `NotificationBridge` to convert FastMCP notifications to our `MCPNotification` format
+- **TCP Transport**: Uses FastMCP's `WSTransport` with direct `MessageHandler` integration
+- **Connection Management**: Robust connection handling with automatic cleanup and error recovery
+
+#### Notification System
+- **Real-time Notifications**: FastMCP's native notification support enables instant server-to-client communication
+- **Protocol Bridge**: `NotificationBridge` class seamlessly converts FastMCP notifications to application-level events
+- **Auto-refresh Logic**: List change notifications automatically refresh relevant UI views
+- **Toast Control**: Per-server notification preferences with intelligent suppression
+
+### Detailed Diagrams
+
+For comprehensive architectural diagrams showing the FastMCP integration, component structure, protocol communication, and data flow, see the [Architecture Diagrams](docs/diagrams.md) document.
 
 The diagrams include:
 - **Application Flow Diagram** - CLI command routing and component interactions including download-resource command
 - **TUI Component Architecture** - UI layout and widget organization  
-- **MCP Protocol Flow** - Communication sequence between components
-- **Client Transport Architecture** - STDIO and TCP transport implementations
+- **MCP Protocol Flow** - FastMCP-based communication sequence with notification bridge
+- **Client Transport Architecture** - FastMCP transport implementations with notification bridge architecture
+- **Server Notifications Architecture** - FastMCP notification system with protocol adaptation
 - **Data Flow Through Layers** - Information flow across system layers
 - **Form Validation Flow** - Real-time validation system for execute button control
 - **Dynamic Form Architecture** - Form widget structure and validation relationships
@@ -714,10 +798,10 @@ src/par-mcp-inspector-tui/
 │   ├── tool.py             # Tool definitions
 │   ├── resource.py         # Resource definitions
 │   └── prompt.py           # Prompt definitions
-├── client/                  # MCP client implementations
+├── client/                  # FastMCP-based client implementations
 │   ├── base.py             # Abstract client interface
-│   ├── stdio.py            # STDIO transport client
-│   └── tcp.py              # TCP transport client
+│   ├── stdio.py            # STDIO transport client with FastMCP StdioTransport
+│   └── tcp.py              # TCP transport client with FastMCP WSTransport
 ├── services/                # Service layer
 │   ├── mcp_service.py      # MCP connection service
 │   └── server_manager.py   # Server configuration management
@@ -744,6 +828,7 @@ src/par-mcp-inspector-tui/
    - Verify host/port for TCP servers
    - Use CLI debug commands for detailed connection testing
    - Enable debug mode for detailed error messages
+   - FastMCP provides enhanced error reporting for connection issues
 
 2. **No tools/resources showing**:
    - Use `--verbose` flag to see server capabilities

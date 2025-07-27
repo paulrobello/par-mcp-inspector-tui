@@ -12,7 +12,7 @@ flowchart TD
 
     B -->|tui| C[TUI Application<br/>MCPInspectorApp]
     B -->|connect| D[Direct STDIO Connection]
-    B -->|connect-tcp| E[Direct TCP Connection]
+    B -->|connect-tcp| E[Direct HTTP+SSE Connection]
     B -->|debug| F[Debug Configured Server]
     B -->|servers| G[List Servers]
     B -->|download-resource| H[Download Resource<br/>CLI Command]
@@ -30,20 +30,22 @@ flowchart TD
 
     J --> M{Transport Type}
     M -->|STDIO| N[StdioMCPClient]
-    M -->|TCP| O[TcpMCPClient]
+    M -->|HTTP| O[HttpMCPClient]
+    M -->|TCP| P[TcpMCPClient<br/>Legacy HTTP+SSE]
 
-    N --> P[MCP Server Process]
-    O --> Q[MCP Server Network]
+    N --> Q[MCP Server Process]
+    O --> R[MCP HTTP Endpoint]
+    P --> S[MCP HTTP+SSE Server]
 
-    K --> R[Server Panel]
-    K --> S[Resources View]
-    K --> T[Tools View]
-    K --> U[Prompts View]
-    K --> V[Notifications View]
-    K --> W[Response Viewer]
+    K --> T[Server Panel]
+    K --> U[Resources View]
+    K --> V[Tools View]
+    K --> W[Prompts View]
+    K --> X[Notifications View]
+    K --> Y[Response Viewer]
 
-    S --> AA
-    S --> BB
+    U --> AA
+    U --> BB
 
     style A fill:#1e3a8a,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style B fill:#7c3aed,stroke:#ffffff,stroke-width:2px,color:#ffffff
@@ -60,14 +62,16 @@ flowchart TD
     style M fill:#7c3aed,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style N fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style O fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style P fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style P fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style Q fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style R fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style S fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style R fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style S fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style T fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style U fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style V fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style W fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style X fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style Y fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style AA fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style BB fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
 ```
@@ -139,58 +143,73 @@ flowchart TB
 
 ## MCP Protocol Flow
 
-Sequence diagram displaying the communication flow between user, service, client, and MCP server during connection and operations.
+Sequence diagram displaying the FastMCP-based communication flow between user, service, client, and MCP server with notification bridge.
 
 ```mermaid
 sequenceDiagram
     participant U as User/TUI
     participant S as MCP Service
     participant C as MCP Client
+    participant F as FastMCP Client
+    participant N as NotificationBridge
     participant M as MCP Server
 
     U->>S: Connect to Server
     S->>C: Create Client (STDIO/TCP)
-    C->>M: Initialize Connection
-    M-->>C: Server Capabilities
+    C->>F: Initialize FastMCP Client
+    F->>M: Initialize Connection
+    M-->>F: Server Capabilities
+    F-->>C: Connection Established
     C-->>S: Server Info & Capabilities
     S-->>U: Connection Status
 
-    Note over U,M: Server Introspection
+    Note over U,M: Server Introspection via FastMCP
 
     U->>S: List Resources
-    S->>C: resources/list
-    C->>M: JSON-RPC Request
-    M-->>C: Resources Response
-    C-->>S: Parsed Resources
+    S->>C: list_resources()
+    C->>F: client.list_resources()
+    F->>M: JSON-RPC 2.0 Request
+    M-->>F: Resources Response
+    F-->>C: Parsed Resources List
+    C-->>S: Resource Objects
     S-->>U: Update Resources View
 
     U->>S: List Tools
-    S->>C: tools/list
-    C->>M: JSON-RPC Request
-    M-->>C: Tools Response
-    C-->>S: Parsed Tools
+    S->>C: list_tools()
+    C->>F: client.list_tools()
+    F->>M: JSON-RPC 2.0 Request
+    M-->>F: Tools Response
+    F-->>C: Parsed Tools List
+    C-->>S: Tool Objects
     S-->>U: Update Tools View
 
     U->>S: List Prompts
-    S->>C: prompts/list
-    C->>M: JSON-RPC Request
-    M-->>C: Prompts Response
-    C-->>S: Parsed Prompts
+    S->>C: list_prompts()
+    C->>F: client.list_prompts()
+    F->>M: JSON-RPC 2.0 Request
+    M-->>F: Prompts Response
+    F-->>C: Parsed Prompts List
+    C-->>S: Prompt Objects
     S-->>U: Update Prompts View
 
-    Note over U,M: Tool Execution Example
+    Note over U,M: Tool Execution via FastMCP
 
     U->>S: Execute Tool
-    S->>C: tools/call
-    C->>M: JSON-RPC Request (with args)
-    M-->>C: Tool Result
+    S->>C: call_tool(name, args)
+    C->>F: client.call_tool(name, args)
+    F->>M: JSON-RPC 2.0 Request
+    M-->>F: Tool Result
+    F-->>C: CallToolResult Object
     C-->>S: Parsed Result
     S-->>U: Display Response
 
-    Note over U,M: Server Notifications
+    Note over U,M: FastMCP Notifications with Bridge
 
-    M->>C: Server Notification (no ID)
-    C->>S: _handle_notification()
+    M->>F: ServerNotification
+    F->>N: MessageHandler.on_notification()
+    N->>N: Convert to MCPNotification
+    N->>C: _handle_notification()
+    C->>S: Process Notification
     S->>S: Parse Notification Type
     S->>U: Add to Notifications Tab
     S->>U: Show Toast Notification
@@ -206,54 +225,94 @@ sequenceDiagram
 
 ## Client Transport Architecture
 
-Displays the two transport types (STDIO/TCP) and their connection to the common protocol layer.
+Displays the transport types (STDIO/HTTP/TCP) using FastMCP's transport layer with notification bridge architecture.
 
 ```mermaid
 flowchart TD
     A[MCP Service] --> B{Transport Type}
 
     B -->|stdio| C[StdioMCPClient]
-    B -->|tcp| D[TcpMCPClient]
+    B -->|http| D[HttpMCPClient]
+    B -->|tcp| E[TcpMCPClient<br/>Legacy HTTP+SSE]
 
-    subgraph "STDIO Transport"
-        C --> E[Process Spawning]
-        E --> F[stdin/stdout pipes]
-        F --> G[MCP Server Process]
+    subgraph "STDIO Transport with FastMCP (Recommended)"
+        C --> C1[FastMCP Client]
+        C1 --> C2[StdioTransport]
+        C2 --> C3[Process Spawning]
+        C3 --> C4[stdin/stdout pipes]
+        C4 --> C5[MCP Server Process]
+
+        C1 --> C6[NotificationBridge]
+        C6 --> C7[MessageHandler System]
+        C7 --> C8[Custom Notification Handlers]
     end
 
-    subgraph "TCP Transport"
-        D --> H[Socket Connection]
-        H --> I[Network Communication]
-        I --> J[MCP Server Service]
+    subgraph "HTTP Transport with FastMCP"
+        D --> D1[FastMCP Client]
+        D1 --> D2[StreamableHttpTransport]
+        D2 --> D3[HTTP/HTTPS Connection]
+        D3 --> D4[MCP HTTP Endpoint]
+
+        D1 --> D6[Direct MessageHandler]
+        D6 --> D7[Custom Notification Handlers]
     end
 
-    subgraph "Common Protocol Layer"
-        K[JSON-RPC Messages]
-        L[Message Serialization]
-        M[Error Handling]
+    subgraph "TCP Transport with FastMCP (Legacy)"
+        E --> E1[FastMCP Client]
+        E1 --> E2[SSETransport]
+        E2 --> E3[HTTP+SSE Connection]
+        E3 --> E4[MCP HTTP Server]
+
+        E1 --> E6[Direct MessageHandler]
+        E6 --> E7[Custom Notification Handlers]
+    end
+
+    subgraph "FastMCP Protocol Layer"
+        K[JSON-RPC 2.0 Messages]
+        L[Automatic Serialization]
+        M[Built-in Error Handling]
         N[Capability Negotiation]
+        O[Real-time Notifications]
     end
 
-    C --> K
-    D --> K
+    C1 --> K
+    D1 --> K
+    E1 --> K
     K --> L
     L --> M
     M --> N
+    N --> O
 
     style A fill:#1e3a8a,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style B fill:#7c3aed,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style C fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style D fill:#dc2626,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style E fill:#0369a1,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style F fill:#0369a1,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style G fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style H fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style I fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style J fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style E fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style C1 fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style C2 fill:#0369a1,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style C3 fill:#0369a1,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style C4 fill:#0369a1,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style C5 fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style C6 fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style C7 fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style C8 fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style D1 fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style D2 fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style D3 fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style D4 fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style D6 fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style D7 fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style E1 fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style E2 fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style E3 fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style E4 fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style E6 fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style E7 fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style K fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style L fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style M fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style N fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style O fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
 ```
 
 ## Data Flow Through Layers
@@ -534,7 +593,7 @@ flowchart TD
 
 ## Server Notifications Architecture
 
-Displays the real-time notification system that enables servers to send notifications to the client with automatic UI updates.
+Displays the FastMCP-based real-time notification system with NotificationBridge for protocol adaptation.
 
 ```mermaid
 flowchart TD
@@ -548,34 +607,41 @@ flowchart TD
         D[Client Declares Capabilities<br/>tools.listChanged: true<br/>resources.listChanged: true<br/>prompts.listChanged: true]
     end
 
-    subgraph "Transport Layer"
-        E[JSON-RPC Notification<br/>No ID field]
-        F[STDIO/TCP Transport]
+    subgraph "FastMCP Transport Layer"
+        E[JSON-RPC 2.0 Notification<br/>ServerNotification Type]
+        F[StdioTransport/WSTransport]
+        G[FastMCP Client]
     end
 
-    subgraph "MCP Client"
-        G[Notification Handler<br/>_handle_notification()]
-        H[Registered Handlers<br/>by Method]
+    subgraph "Notification Bridge (STDIO Only)"
+        H[NotificationBridge Class<br/>extends MessageHandler]
+        I[on_notification() Method<br/>Protocol Conversion]
+        J[Convert to MCPNotification<br/>Extract params & method]
+    end
+
+    subgraph "MCP Client Layer"
+        K[Base Client Handler<br/>_handle_notification()]
+        L[Notification Routing<br/>by Method Type]
     end
 
     subgraph "MCP Service"
-        I[Notification Processing<br/>_handle_mcp_notification()]
-        J[ServerNotification Model<br/>With Server Context]
-        K[Callback System]
+        M[Notification Processing<br/>_handle_mcp_notification()]
+        N[ServerNotification Model<br/>With Server Context]
+        O[Callback System]
     end
 
     subgraph "TUI Application"
-        L[Notification Panel<br/>Display with Server Context]
-        M[Auto-refresh Logic<br/>list_changed notifications]
-        N[Toast Control Logic<br/>Per-server + Tab-aware]
-        O[Toast Notifications<br/>System alerts]
+        P[Notification Panel<br/>Display with Server Context]
+        Q[Auto-refresh Logic<br/>list_changed notifications]
+        R[Toast Control Logic<br/>Per-server + Tab-aware]
+        S[Toast Notifications<br/>System alerts]
     end
 
     subgraph "UI Updates"
-        P[Tools View Refresh]
-        Q[Resources View Refresh]
-        R[Prompts View Refresh]
-        S[Notification History]
+        T[Tools View Refresh]
+        U[Resources View Refresh]
+        V[Prompts View Refresh]
+        W[Notification History]
     end
 
     A --> C
@@ -588,14 +654,18 @@ flowchart TD
     I --> J
     J --> K
     K --> L
-    K --> M
-    K --> N
+    L --> M
+    M --> N
     N --> O
+    O --> P
+    O --> Q
+    O --> R
+    R --> S
 
-    M --> P
-    M --> Q
-    M --> R
-    L --> S
+    Q --> T
+    Q --> U
+    Q --> V
+    P --> W
 
     D -.->|Enables| C
 
@@ -605,18 +675,23 @@ flowchart TD
     style D fill:#7c3aed,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style E fill:#0369a1,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style F fill:#0369a1,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style G fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style H fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style I fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style J fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style K fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style L fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style M fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style N fill:#581c87,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style O fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style P fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style Q fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style R fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style G fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style H fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style I fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style J fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style K fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style L fill:#059669,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style M fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style N fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style O fill:#0891b2,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style P fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style Q fill:#991b1b,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style R fill:#581c87,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style S fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style T fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style U fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style V fill:#ea580c,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    style W fill:#374151,stroke:#ffffff,stroke-width:2px,color:#ffffff
 ```
 
 ## Server Configuration Dialog Flow

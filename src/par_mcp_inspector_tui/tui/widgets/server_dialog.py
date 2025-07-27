@@ -60,7 +60,7 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
 
                 # Transport selection
                 yield Label("Transport Type:")
-                yield RadioSet("STDIO", "TCP", id="transport-type")
+                yield RadioSet("STDIO", "WebSocket", "HTTP", id="transport-type")
 
                 # STDIO configuration
                 with Container(id="stdio-config", classes="transport-config"):
@@ -85,7 +85,7 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
                         classes="config-textarea",
                     )
 
-                # TCP configuration
+                # WebSocket configuration
                 with Container(id="tcp-config", classes="transport-config"):
                     yield Label("Host:")
                     yield Input(
@@ -100,6 +100,15 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
                         id="port",
                         value=str(self.server.port) if self.server else "3333",
                         validators=[Number(minimum=1, maximum=65535)],
+                    )
+
+                # HTTP configuration
+                with Container(id="http-config", classes="transport-config"):
+                    yield Label("URL:")
+                    yield Input(
+                        placeholder="e.g., https://example.com/mcp, http://localhost:8080/mcp",
+                        id="url",
+                        value=self.server.url or "" if self.server else "",
                     )
 
                 # Toast notifications configuration
@@ -130,15 +139,24 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
     def _set_initial_transport_selection(self) -> None:
         """Set initial transport selection after widget is mounted."""
         transport_radio = self.query_one("#transport-type", RadioSet)
+        buttons = transport_radio.query(RadioButton)
+
         # Use action to press the correct radio button
-        if self.server and self.server.transport.value == "tcp":
-            # Press the TCP button (index 1)
-            buttons = transport_radio.query(RadioButton)
-            if len(buttons) > 1:
-                buttons[1].value = True
+        if self.server:
+            if self.server.transport.value == "tcp":
+                # Press the WebSocket button (index 1)
+                if len(buttons) > 1:
+                    buttons[1].value = True
+            elif self.server.transport.value == "http":
+                # Press the HTTP button (index 2)
+                if len(buttons) > 2:
+                    buttons[2].value = True
+            else:
+                # Press the STDIO button (index 0) - default
+                if len(buttons) > 0:
+                    buttons[0].value = True
         else:
-            # Press the STDIO button (index 0) - this is default
-            buttons = transport_radio.query(RadioButton)
+            # Press the STDIO button (index 0) - default for new servers
             if len(buttons) > 0:
                 buttons[0].value = True
 
@@ -155,13 +173,20 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
         transport_radio = self.query_one("#transport-type", RadioSet)
         stdio_config = self.query_one("#stdio-config")
         tcp_config = self.query_one("#tcp-config")
+        http_config = self.query_one("#http-config")
 
         if transport_radio.pressed_index == 0:  # STDIO
             stdio_config.display = True
             tcp_config.display = False
-        else:  # TCP
+            http_config.display = False
+        elif transport_radio.pressed_index == 1:  # WebSocket
             stdio_config.display = False
             tcp_config.display = True
+            http_config.display = False
+        else:  # HTTP
+            stdio_config.display = False
+            tcp_config.display = False
+            http_config.display = True
 
     def _format_env(self, env: dict[str, str] | None) -> str:
         """Format environment variables for display."""
@@ -191,15 +216,15 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
             command_input = self.query_one("#command", Input)
             if not command_input.value.strip():
                 return "Command is required for STDIO transport"
-        else:  # TCP
+        elif transport_radio.pressed_index == 1:  # WebSocket
             host_input = self.query_one("#host", Input)
             port_input = self.query_one("#port", Input)
 
             if not host_input.value.strip():
-                return "Host is required for TCP transport"
+                return "Host is required for WebSocket transport"
 
             if not port_input.value.strip():
-                return "Port is required for TCP transport"
+                return "Port is required for WebSocket transport"
 
             try:
                 port = int(port_input.value)
@@ -207,6 +232,26 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
                     return "Port must be between 1 and 65535"
             except ValueError:
                 return "Port must be a valid number"
+        else:  # HTTP
+            url_input = self.query_one("#url", Input)
+            url = url_input.value.strip()
+
+            if not url:
+                return "URL is required for HTTP transport"
+
+            # Basic URL validation
+            if not (url.startswith("http://") or url.startswith("https://")):
+                return "URL must start with http:// or https://"
+
+            # Check for valid URL structure
+            from urllib.parse import urlparse
+
+            try:
+                parsed = urlparse(url)
+                if not parsed.netloc:
+                    return "URL must include a valid hostname"
+            except Exception:
+                return "Invalid URL format"
 
         return None
 
@@ -219,11 +264,19 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
         # Get server ID (existing for edit, new for add)
         server_id = self.server.id if self.server else str(uuid.uuid4())
 
+        # Determine transport type
+        if transport_radio.pressed_index == 0:
+            transport = TransportType.STDIO
+        elif transport_radio.pressed_index == 1:
+            transport = TransportType.TCP
+        else:
+            transport = TransportType.HTTP
+
         # Common fields
         server_data = {
             "id": server_id,
             "name": name_input.value.strip(),
-            "transport": TransportType("stdio" if transport_radio.pressed_index == 0 else "tcp"),
+            "transport": transport,
             "toast_notifications": toast_checkbox.value,
         }
 
@@ -244,12 +297,16 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
             if env_text:
                 server_data["env"] = self._parse_env(env_text)
 
-        else:  # TCP
+        elif transport_radio.pressed_index == 1:  # WebSocket
             host_input = self.query_one("#host", Input)
             port_input = self.query_one("#port", Input)
 
             server_data["host"] = host_input.value.strip()
             server_data["port"] = int(port_input.value)
+
+        else:  # HTTP
+            url_input = self.query_one("#url", Input)
+            server_data["url"] = url_input.value.strip()
 
         return MCPServer(**server_data)
 

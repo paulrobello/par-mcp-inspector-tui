@@ -93,12 +93,16 @@ class NotificationPanel(Widget):
             pass
 
         # Add new notification at the top
-        notification_list = self.query_one("#notification-list", VerticalScroll)
-        notification = NotificationItem(message, notification_type, server_name=server_name)
-        notification_list.mount(notification, before=0)
+        try:
+            notification_list = self.query_one("#notification-list", VerticalScroll)
+            notification = NotificationItem(message, notification_type, server_name=server_name)
+            notification_list.mount(notification, before=0)
 
-        # Scroll to top to show latest
-        notification_list.scroll_home(animate=True)
+            # Scroll to top to show latest
+            notification_list.scroll_home(animate=True)
+        except Exception:
+            # Widget may be unmounted during shutdown
+            return
 
         # Update count
         self.notification_count += 1
@@ -125,7 +129,11 @@ class NotificationPanel(Widget):
 
     def clear_notifications(self) -> None:
         """Clear all notifications."""
-        notification_list = self.query_one("#notification-list", VerticalScroll)
-        notification_list.remove_children()
-        notification_list.mount(Static("No notifications", id="empty-message", classes="empty-message"))
+        try:
+            notification_list = self.query_one("#notification-list", VerticalScroll)
+            notification_list.remove_children()
+            notification_list.mount(Static("No notifications", id="empty-message", classes="empty-message"))
+        except Exception:
+            # Widget may be unmounted during shutdown
+            return
         self.notification_count = 0

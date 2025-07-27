@@ -73,3 +73,17 @@ servers:
       - "@modelcontextprotocol/server-everything"
     env:
       NODE_ENV: "development"
+
+  # Example HTTP server using Streamable HTTP transport
+  http-server:
+    name: "HTTP MCP Server"
+    transport: "http"
+    url: "https://example.com/mcp"
+    toast_notifications: true
+
+  # Example local HTTP server
+  local-http-server:
+    name: "Local HTTP Server"
+    transport: "http"
+    url: "http://localhost:8080/mcp"
+    toast_notifications: true

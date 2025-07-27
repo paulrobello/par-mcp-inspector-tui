@@ -82,6 +82,18 @@ class ResourcesView(Widget, can_focus_children=True):
 
             traceback.print_exc()
 
+    def clear_data(self) -> None:
+        """Clear all resources data and display."""
+        self.resources = []
+        self.selected_resource = None
+        self._update_display()
+        # Disable read button
+        try:
+            read_button = self.query_one("#read-resource-button", Button)
+            read_button.disabled = True
+        except Exception:
+            pass  # Button might not exist yet
+
     def _update_display(self) -> None:
         """Update the resources display."""
         resources_list = self.query_one("#resources-list", ListView)
@@ -123,15 +135,17 @@ class ResourcesView(Widget, can_focus_children=True):
 
             # Show result in response viewer
             if result:
-                content = result.get("contents", [])
-                if content and isinstance(content, list) and len(content) > 0:
-                    item = content[0]
-                    if isinstance(item, dict):
-                        # Debug: Log the full item structure
-                        self.app.debug_log(f"Resource item structure: {item}")
+                # FastMCP returns a list of ResourceContents objects directly
+                if isinstance(result, list) and len(result) > 0:
+                    item = result[0]
+
+                    # Handle both object and dict formats
+                    if hasattr(item, "text") or hasattr(item, "blob"):
+                        # It's a ResourceContents object
+                        self.app.debug_log(f"Resource item (object): {item}")
 
                         # Check for binary content first
-                        blob_data = item.get("blob")
+                        blob_data = getattr(item, "blob", None)
                         if blob_data:
                             # Debug: Log blob data info
                             self.app.debug_log(
@@ -140,29 +154,29 @@ class ResourcesView(Widget, can_focus_children=True):
                             self.app.debug_log(f"Blob data preview: {str(blob_data)[:100]}...")
 
                             # Use name from response if available, fallback to resource name
-                            resource_name = item.get("name") or self.selected_resource.name
+                            resource_name = getattr(item, "name", None) or self.selected_resource.name
 
                             # Use mimeType from response, fallback to resource metadata
-                            response_mime_type = item.get("mimeType") or self.selected_resource.mime_type
+                            response_mime_type = getattr(item, "mimeType", None) or self.selected_resource.mime_type
 
                             # Handle binary content - decode base64 and save to temp file
                             file_path = self._save_blob_to_file(blob_data, resource_name, response_mime_type)
                             self._show_file_response(file_path, "Binary", resource_name, response_mime_type)
                         else:
                             # Handle text content - save to temp file as well
-                            text = item.get("text", "")
+                            text = getattr(item, "text", "")
                             self.app.debug_log(f"Found text data, length: {len(text)}")
 
                             # Use name from response if available, fallback to resource name
-                            resource_name = item.get("name") or self.selected_resource.name
+                            resource_name = getattr(item, "name", None) or self.selected_resource.name
 
                             # Use mimeType from response, fallback to resource metadata
-                            response_mime_type = item.get("mimeType") or self.selected_resource.mime_type
+                            response_mime_type = getattr(item, "mimeType", None) or self.selected_resource.mime_type
 
                             file_path = self._save_text_to_file(text, resource_name, response_mime_type)
                             self._show_file_response(file_path, "Text", resource_name, response_mime_type)
                     else:
-                        self.app.show_response(f"Resource: {self.selected_resource.name}", str(content), "json")
+                        self.app.show_response(f"Resource: {self.selected_resource.name}", str(item), "json")
                 else:
                     self.app.show_response(f"Resource: {self.selected_resource.name}", str(result), "json")
         except Exception as e:

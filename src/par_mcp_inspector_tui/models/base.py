@@ -11,6 +11,7 @@ class TransportType(str, Enum):
 
     STDIO = "stdio"
     TCP = "tcp"
+    HTTP = "http"
 
 
 class ServerNotificationType(str, Enum):

@@ -92,16 +92,15 @@ class ServerManager:
             )
         )
 
-        # Example TCP server
-        self.add_server(
-            MCPServer(
-                id=str(uuid.uuid4()),
-                name="Example TCP Server",
-                transport=TransportType.TCP,
-                host="localhost",
-                port=3333,
-            )
-        )
+        # Example HTTP server (uncomment and configure when you have an HTTP MCP server)
+        # self.add_server(
+        #     MCPServer(
+        #         id=str(uuid.uuid4()),
+        #         name="Example HTTP Server",
+        #         transport=TransportType.HTTP,
+        #         url="http://localhost:8080/mcp",
+        #     )
+        # )
 
         # Everything server - comprehensive example server with all features
         self.add_server(

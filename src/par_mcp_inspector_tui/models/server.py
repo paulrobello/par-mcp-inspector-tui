@@ -50,6 +50,7 @@ class MCPServer(BaseModel):
     args: list[str] | None = None  # For STDIO transport
     host: str | None = None  # For TCP transport
     port: int | None = None  # For TCP transport
+    url: str | None = None  # For HTTP transport
     env: dict[str, str] | None = None
     toast_notifications: bool = True  # Show toast notifications for server notifications
     state: ServerState = ServerState.DISCONNECTED
@@ -69,6 +70,10 @@ class MCPServer(BaseModel):
             return {
                 "host": self.host,
                 "port": self.port,
+            }
+        elif self.transport == TransportType.HTTP:
+            return {
+                "url": self.url,
             }
         else:
             raise ValueError(f"Unknown transport type: {self.transport}")

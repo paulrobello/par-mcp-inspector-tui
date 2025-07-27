@@ -130,9 +130,13 @@ class ServerPanel(Widget):
 
     def _update_buttons(self) -> None:
         """Update button states based on selection."""
-        connect_btn = self.query_one("#connect-button", Button)
-        edit_btn = self.query_one("#edit-server-button", Button)
-        delete_btn = self.query_one("#delete-server-button", Button)
+        try:
+            connect_btn = self.query_one("#connect-button", Button)
+            edit_btn = self.query_one("#edit-server-button", Button)
+            delete_btn = self.query_one("#delete-server-button", Button)
+        except Exception:
+            # Widgets may be unmounted during shutdown
+            return
 
         if self.selected_server:
             edit_btn.disabled = False

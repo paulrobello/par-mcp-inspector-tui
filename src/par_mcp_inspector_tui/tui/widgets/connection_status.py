@@ -37,8 +37,12 @@ class ConnectionStatus(Widget):
 
     def _update_display(self) -> None:
         """Update the status display."""
-        status_text = self.query_one("#status-text", Static)
-        server_info = self.query_one("#server-info", Static)
+        try:
+            status_text = self.query_one("#status-text", Static)
+            server_info = self.query_one("#server-info", Static)
+        except Exception:
+            # Widget may be unmounted during shutdown
+            return
 
         # Update status text and styling
         if self.status == ServerState.CONNECTED:

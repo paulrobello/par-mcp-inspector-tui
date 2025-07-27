@@ -110,6 +110,8 @@ def servers() -> None:
                 connection_info = f"{server.command} {' '.join(server.args or [])}"
             elif server.transport.value == "tcp":
                 connection_info = f"{server.host}:{server.port}"
+            elif server.transport.value == "http":
+                connection_info = server.url or ""
 
             last_error = server.error[:50] + "..." if server.error and len(server.error) > 50 else server.error or ""
 
@@ -133,6 +135,10 @@ def debug(
         bool,
         typer.Option("--debug", help="Enable debug logging of MCP messages"),
     ] = False,
+    raw_interactions: Annotated[
+        bool,
+        typer.Option("--raw-interactions", help="Dump raw MCP protocol interactions"),
+    ] = False,
 ) -> None:
     """Connect to a server and dump all interactions for debugging."""
     # Set up logging with file output only if debug is enabled
@@ -146,7 +152,7 @@ def debug(
         log_file = log_dir / f"mcp_inspector_debug_{timestamp}.log"
     setup_logging(debug=debug, log_file=log_file)
 
-    asyncio.run(_debug_server(server_id_or_name, verbose, debug))
+    asyncio.run(_debug_server(server_id_or_name, verbose, debug, raw_interactions))
 
 
 @app.command()
@@ -168,6 +174,10 @@ def connect(
         bool,
         typer.Option("--debug", help="Enable debug logging of MCP messages"),
     ] = False,
+    raw_interactions: Annotated[
+        bool,
+        typer.Option("--raw-interactions", help="Dump raw MCP protocol interactions"),
+    ] = False,
     name: Annotated[
         str,
         typer.Option("--name", "-n", help="Server name for display"),
@@ -185,7 +195,7 @@ def connect(
         log_file = log_dir / f"mcp_inspector_debug_{timestamp}.log"
     setup_logging(debug=debug, log_file=log_file)
 
-    asyncio.run(_connect_arbitrary_server(command, args, env, verbose, debug, name))
+    asyncio.run(_connect_arbitrary_server(command, args, env, verbose, debug, raw_interactions, name))
 
 
 @app.command()
@@ -236,6 +246,10 @@ def connect_tcp(
         bool,
         typer.Option("--debug", help="Enable debug logging of MCP messages"),
     ] = False,
+    raw_interactions: Annotated[
+        bool,
+        typer.Option("--raw-interactions", help="Dump raw MCP protocol interactions"),
+    ] = False,
     name: Annotated[
         str,
         typer.Option("--name", "-n", help="Server name for display"),
@@ -253,11 +267,46 @@ def connect_tcp(
         log_file = log_dir / f"mcp_inspector_debug_{timestamp}.log"
     setup_logging(debug=debug, log_file=log_file)
 
-    asyncio.run(_connect_arbitrary_tcp_server(host, port, verbose, debug, name))
+    asyncio.run(_connect_arbitrary_tcp_server(host, port, verbose, debug, raw_interactions, name))
+
+
+@app.command()
+def connect_http(
+    url: Annotated[str, typer.Argument(help="HTTP endpoint URL (e.g., https://example.com/mcp)")],
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Verbose output with raw JSON"),
+    ] = False,
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", help="Enable debug logging of MCP messages"),
+    ] = False,
+    raw_interactions: Annotated[
+        bool,
+        typer.Option("--raw-interactions", help="Dump raw MCP protocol interactions"),
+    ] = False,
+    name: Annotated[
+        str,
+        typer.Option("--name", "-n", help="Server name for display"),
+    ] = "HTTP Server",
+) -> None:
+    """Connect to an arbitrary MCP server via Streamable HTTP transport."""
+    # Set up logging with file output only if debug is enabled
+    log_file = None
+    if debug:
+        from datetime import datetime
+
+        log_dir = Path.cwd() / "logs"
+        log_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = log_dir / f"mcp_inspector_debug_{timestamp}.log"
+    setup_logging(debug=debug, log_file=log_file)
+
+    asyncio.run(_connect_arbitrary_http_server(url, verbose, debug, raw_interactions, name))
 
 
 async def _connect_arbitrary_server(
-    command: str, args: list[str], env: list[str], verbose: bool, debug: bool, name: str
+    command: str, args: list[str], env: list[str], verbose: bool, debug: bool, raw_interactions: bool, name: str
 ) -> None:
     """Connect to an arbitrary STDIO MCP server."""
     try:
@@ -285,7 +334,7 @@ async def _connect_arbitrary_server(
         )
 
         # Run the same debug logic as the configured server debug
-        await _run_server_debug(server, verbose, debug)
+        await _run_server_debug(server, verbose, debug, raw_interactions)
 
     except Exception as e:
         console.print(f"[bold red]Unexpected error:[/bold red] {e}")
@@ -296,7 +345,9 @@ async def _connect_arbitrary_server(
         raise typer.Exit(code=1)
 
 
-async def _connect_arbitrary_tcp_server(host: str, port: int, verbose: bool, debug: bool, name: str) -> None:
+async def _connect_arbitrary_tcp_server(
+    host: str, port: int, verbose: bool, debug: bool, raw_interactions: bool, name: str
+) -> None:
     """Connect to an arbitrary TCP MCP server."""
     try:
         console.print(f"[bold blue]Connecting to arbitrary TCP server:[/bold blue] {name}")
@@ -306,7 +357,7 @@ async def _connect_arbitrary_tcp_server(host: str, port: int, verbose: bool, deb
         server = MCPServer(id="temp-tcp-server", name=name, transport=TransportType.TCP, host=host, port=port)
 
         # Run the same debug logic as the configured server debug
-        await _run_server_debug(server, verbose, debug)
+        await _run_server_debug(server, verbose, debug, raw_interactions)
 
     except Exception as e:
         console.print(f"[bold red]Unexpected error:[/bold red] {e}")
@@ -317,7 +368,30 @@ async def _connect_arbitrary_tcp_server(host: str, port: int, verbose: bool, deb
         raise typer.Exit(code=1)
 
 
-async def _run_server_debug(server: MCPServer, verbose: bool, debug: bool) -> None:
+async def _connect_arbitrary_http_server(
+    url: str, verbose: bool, debug: bool, raw_interactions: bool, name: str
+) -> None:
+    """Connect to an arbitrary HTTP MCP server."""
+    try:
+        console.print(f"[bold blue]Connecting to arbitrary HTTP server:[/bold blue] {name}")
+        console.print(f"URL: {url}")
+
+        # Create temporary server configuration
+        server = MCPServer(id="temp-http-server", name=name, transport=TransportType.HTTP, url=url)
+
+        # Run the same debug logic as the configured server debug
+        await _run_server_debug(server, verbose, debug, raw_interactions)
+
+    except Exception as e:
+        console.print(f"[bold red]Unexpected error:[/bold red] {e}")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        raise typer.Exit(code=1)
+
+
+async def _run_server_debug(server: MCPServer, verbose: bool, debug: bool, raw_interactions: bool) -> None:
     """Run server debugging logic (shared between configured and arbitrary servers)."""
     # For filesystem servers, provide roots based on command args
     roots = []
@@ -337,8 +411,11 @@ async def _run_server_debug(server: MCPServer, verbose: bool, debug: bool) -> No
     if debug and roots:
         console.print(f"[dim]Providing roots: {roots}[/dim]")
 
+    if raw_interactions:
+        console.print("[bold yellow]Raw MCP interactions will be dumped to console[/bold yellow]")
+
     # Create service and connect
-    service = MCPService(debug=debug, roots=roots)
+    service = MCPService(debug=debug or raw_interactions, roots=roots)
 
     console.print("\n[bold yellow]Connecting...[/bold yellow]")
     try:
@@ -450,7 +527,7 @@ async def _run_server_debug(server: MCPServer, verbose: bool, debug: bool) -> No
     console.print("[bold green]✓ Disconnected[/bold green]")
 
 
-async def _debug_server(server_id_or_name: str, verbose: bool, debug: bool) -> None:
+async def _debug_server(server_id_or_name: str, verbose: bool, debug: bool, raw_interactions: bool) -> None:
     """Debug server connection and interactions."""
     try:
         console.print(f"[bold blue]Debugging server:[/bold blue] {server_id_or_name}")
@@ -478,9 +555,11 @@ async def _debug_server(server_id_or_name: str, verbose: bool, debug: bool) -> N
             console.print(f"Command: {server.command} {' '.join(server.args or [])}")
         elif server.transport.value == "tcp":
             console.print(f"Address: {server.host}:{server.port}")
+        elif server.transport.value == "http":
+            console.print(f"URL: {server.url}")
 
         # Run the debug logic
-        await _run_server_debug(server, verbose, debug)
+        await _run_server_debug(server, verbose, debug, raw_interactions)
 
     except Exception as e:
         console.print(f"[bold red]Unexpected error:[/bold red] {e}")

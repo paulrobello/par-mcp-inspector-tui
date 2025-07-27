@@ -44,6 +44,8 @@ dependencies = [
     "pydantic>=2.11.7",
     "pyyaml>=6.0.2",
     "filetype>=1.2.0",
+    "fastmcp>=2.3.0",
+    "websockets>=12.0",
 ]
 
 [project.license]

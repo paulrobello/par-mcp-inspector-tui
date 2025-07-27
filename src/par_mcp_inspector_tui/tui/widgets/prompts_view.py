@@ -77,6 +77,18 @@ class PromptsView(Widget):
         except Exception as e:
             self.app.notify_error(f"Failed to fetch prompts: {e}")
 
+    def clear_data(self) -> None:
+        """Clear all prompts data and display."""
+        self.prompts = []
+        self.selected_prompt = None
+        self._update_display()
+        # Clear form and disable execute button
+        try:
+            form_container = self.query_one("#form-container")
+            form_container.remove_children()
+        except Exception:
+            pass  # Container might not exist yet
+
     def _update_display(self) -> None:
         """Update the prompts display."""
         prompts_list = self.query_one("#prompts-list", ListView)
@@ -201,12 +213,23 @@ class PromptsView(Widget):
 
             # Show result in response viewer
             if result:
-                messages = result.get("messages", [])
+                # FastMCP returns GetPromptResult objects with attributes, not dict
+                messages = getattr(result, "messages", [])
                 if messages:
-                    # Format messages nicely
-                    content = "\n\n".join(
-                        f"**{msg.get('role', 'unknown')}**:\n{msg.get('content', '')}" for msg in messages
-                    )
+                    # Format messages nicely - messages may be objects or dicts
+                    formatted_messages = []
+                    for msg in messages:
+                        if hasattr(msg, "role") and hasattr(msg, "content"):
+                            # It's a message object
+                            role = getattr(msg, "role", "unknown")
+                            content = getattr(msg, "content", "")
+                        else:
+                            # It's a dictionary
+                            role = msg.get("role", "unknown")
+                            content = msg.get("content", "")
+                        formatted_messages.append(f"**{role}**:\n{content}")
+
+                    content = "\n\n".join(formatted_messages)
                     self.app.show_response(f"Prompt: {self.selected_prompt.name}", content, "markdown")
                 else:
                     self.app.show_response(f"Prompt: {self.selected_prompt.name}", str(result), "json")

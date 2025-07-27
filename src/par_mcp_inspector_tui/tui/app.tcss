@@ -390,7 +390,7 @@ Button {
 
 /* Radio buttons styling */
 RadioSet {
-    height: 3;
+    height: 5;
     margin-bottom: 1;
 }
 
