@@ -40,6 +40,7 @@ class MCPInspectorApp(App[None]):
         ("q", "quit", "Quit"),
         ("d", "toggle_dark", "Toggle dark mode"),
         ("s", "focus_servers", "Focus servers"),
+        ("p", "toggle_server_panel", "Toggle server panel"),
         ("r", "refresh", "Refresh"),
     ]
 
@@ -56,6 +57,7 @@ class MCPInspectorApp(App[None]):
         self.raw_interactions_view = RawInteractionsView(self.mcp_service)
         self.debug_enabled = debug
         self._shutting_down = False
+        self.server_panel_visible = True  # Default to open
 
         # Set up debug logging to file only if debug is enabled
         if debug:
@@ -110,12 +112,12 @@ class MCPInspectorApp(App[None]):
 
         yield Header()
 
-        with Horizontal(id="main-layout"):
-            # Left panel - Server list and connection
-            with Vertical(id="left-panel"):
-                yield ServerPanel(self.server_manager, self.mcp_service, id="server-panel")
-                yield ConnectionStatus(self.mcp_service, id="connection-status")
+        # Docked server panel on the left
+        with Vertical(id="docked-server-panel"):
+            yield ServerPanel(self.server_manager, self.mcp_service, id="server-panel")
+            yield ConnectionStatus(self.mcp_service, id="connection-status")
 
+        with Horizontal(id="main-layout"):
             # Center panel - Tabbed content
             with TabbedContent(id="main-tabs"):
                 with TabPane("Resources", id="resources-tab"):
@@ -401,7 +403,18 @@ class MCPInspectorApp(App[None]):
 
     def action_focus_servers(self) -> None:
         """Focus the server panel."""
-        self.query_one("#server-panel").focus()
+        if not self.server_panel_visible:
+            self.action_toggle_server_panel()
+        self.query_exactly_one("#server-list").focus()
+
+    def action_toggle_server_panel(self) -> None:
+        """Toggle the visibility of the server panel."""
+        self.server_panel_visible = not self.server_panel_visible
+        panel = self.query_one("#docked-server-panel")
+        if self.server_panel_visible:
+            panel.styles.display = "block"
+        else:
+            panel.styles.display = "none"
 
     def action_refresh(self) -> None:
         """Refresh server data."""

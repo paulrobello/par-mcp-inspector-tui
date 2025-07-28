@@ -8,6 +8,16 @@ Screen {
     height: 100%;
 }
 
+/* Docked Server Panel */
+#docked-server-panel {
+    dock: left;
+    width: 35;
+    min-width: 30;
+    border-right: solid $primary;
+    padding: 0 1;
+    display: block;
+}
+
 /* Additional layout fixes */
 TabbedContent {
     height: 1fr; /* FIX: Use flex sizing for available space */
@@ -17,20 +27,13 @@ TabPane {
     height: 1fr; /* FIX: Use flex sizing within tab content area */
 }
 
-/* Left Panel - Server List */
-#left-panel {
-    width: 35;
-    min-width: 30;
-    border-right: solid $primary;
-    padding: 0 1;
-}
-
-#server-panel {
+/* Server Panel in Docked Container */
+#docked-server-panel #server-panel {
     height: 1fr;
     margin-bottom: 1;
 }
 
-#connection-status {
+#docked-server-panel #connection-status {
     height: auto;
     min-height: 3;
     max-height: 8;
@@ -42,7 +45,7 @@ TabPane {
 /* Center Panel - Tabbed Content */
 #main-tabs {
     width: 1fr;
-    min-width: 40;
+    min-width: 50;
 }
 
 

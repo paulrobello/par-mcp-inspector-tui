@@ -58,6 +58,11 @@ A TUI application for inspecting and interacting with Model Context Protocol (MC
 - New tabs require integration with service callback transfers
 
 ### TUI Features
+- **Docked Server Panel**: Toggleable server management sidebar
+  - Docked to the left side of the interface
+  - Toggle visibility with 'p' key
+  - Open by default, contains server list and connection status
+  - Maintains all server management functionality when hidden/shown
 - **Raw Interactions Tab**: Real-time MCP JSON-RPC message monitoring
   - Syntax highlighted JSON display
   - Regex search functionality

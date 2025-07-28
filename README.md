@@ -779,7 +779,12 @@ servers:
 ## User Interface
 
 ### Main Layout
-- **Left Panel**: Server list and connection status
+- **Docked Server Panel**: Toggleable left sidebar for server management
+  - **Docked Position**: Anchored to the left side of the interface  
+  - **Toggle Control**: Press `p` to show/hide the panel
+  - **Default State**: Opens visible by default
+  - **Contents**: Server list and connection status
+  - **Persistent Functionality**: All server management features remain available when hidden/shown
 - **Center Panel**: Tabbed interface with:
   - **Resources**: Browse and read available resources
   - **Prompts**: Execute prompts with dynamic argument forms and validation
@@ -908,7 +913,8 @@ The server configuration dialog provides comprehensive settings for MCP servers:
 ### Keyboard Shortcuts
 - `q` - Quit application
 - `d` - Toggle dark/light mode
-- `s` - Focus server panel
+- `s` - Focus server panel (when visible)
+- `p` - Toggle server panel visibility
 - `r` - Refresh server data
 - `Ctrl+O` - Open last saved resource file (when viewing resources)
 
