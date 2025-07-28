@@ -5,7 +5,7 @@
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-0.6.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.7.0-green.svg)
 ![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
@@ -18,7 +18,15 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 
 *The MCP Inspector TUI showing a connected "Everything" server with available tools (echo, add, printEnv), tool parameter forms, and real-time interaction logs. The interface displays server management on the left, tabbed content areas in the center, and notifications on the right.*
 
-## 🆕 What's New in v0.6.0
+![MCP Inspector TUI Raw Interactions](https://raw.githubusercontent.com/paulrobello/par-mcp-inspector-tui/main/Screenshot2.png)
+
+*The Raw Interactions tab displaying real-time MCP JSON-RPC protocol messages with syntax highlighting, showing both sent (green) and received (blue) messages with timestamps and comprehensive protocol monitoring capabilities.*
+
+## 🆕 What's New in v0.7.0
+
+**🔧 Bug Fix**: Fixed scroll bar for long tool parameter lists in the TUI interface.
+
+## What's New in v0.6.0
 
 **🔧 Bug Fix**: Fixed missing PyYAML dependency that was causing installation issues.
 
@@ -1042,6 +1050,15 @@ Use 'download-resource my-server-id "<resource-name>"' to download any resource
 Use `--verbose` flag to see raw JSON responses and detailed debugging information.
 
 ## Changelog
+
+### v0.7.0 - Scroll Bar Bug Fix
+- **🔧 Bug Fix**: Fixed scroll bar for long tool parameter lists in the TUI interface
+  - Resolved scrolling issues when tool parameter forms exceed the visible area
+  - Improved usability for tools with many parameters or long parameter descriptions
+  - Enhanced form navigation and parameter accessibility
+
+### v0.6.0 - PyYAML Dependency Fix
+- **🔧 Bug Fix**: Fixed missing PyYAML dependency that was causing installation issues
 
 ### v0.5.0 - Raw Interactions Monitoring, Smart Content Detection & Configuration Export
 - **🔍 Raw Interactions Tab**: Brand new tab for comprehensive MCP JSON-RPC protocol monitoring

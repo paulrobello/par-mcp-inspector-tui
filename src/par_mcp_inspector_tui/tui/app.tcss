@@ -301,9 +301,12 @@ Button {
 /* Tool Form */
 #tool-form-container {
     height: 1fr;
-    overflow-y: scroll;
+    border: solid $primary;
 }
 
+DynamicForm {
+    height: auto;
+}
 
 /* Form Components */
 .form-field {
