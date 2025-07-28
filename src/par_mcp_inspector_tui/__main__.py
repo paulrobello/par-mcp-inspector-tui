@@ -484,8 +484,8 @@ def _copy_for_claude_desktop_cli(server: MCPServer) -> None:
 def _copy_for_claude_code_cli(server: MCPServer) -> None:
     """Copy server config in Claude Code MCP add format to clipboard."""
     try:
-        # Format for Claude Code mcp add command: "claude-code mcp add <name> -- <command> [args...]"
-        command_parts = ["claude-code", "mcp", "add", server.name, "--"]
+        # Format for Claude Code mcp add command: "claude mcp add <name> -- <command> [args...]"
+        command_parts = ["claude", "mcp", "add", server.name, "--"]
 
         if server.transport == TransportType.STDIO:
             command_parts.append(server.command or "")
@@ -498,7 +498,7 @@ def _copy_for_claude_code_cli(server: MCPServer) -> None:
             # This is a placeholder as TCP servers typically need custom setup
             command_parts.extend(
                 [
-                    "# TCP transport not directly supported in claude-code mcp add",
+                    "# TCP transport not directly supported in claude mcp add",
                     f"# Host: {server.host or 'localhost'}",
                     f"# Port: {server.port or 3333}",
                 ]
@@ -509,7 +509,7 @@ def _copy_for_claude_code_cli(server: MCPServer) -> None:
             # This is a placeholder as HTTP servers typically need custom setup
             command_parts.extend(
                 [
-                    "# HTTP transport not directly supported in claude-code mcp add",
+                    "# HTTP transport not directly supported in claude mcp add",
                     f"# URL: {server.url or ''}",
                 ]
             )

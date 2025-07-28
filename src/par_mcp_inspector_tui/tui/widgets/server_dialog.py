@@ -383,8 +383,8 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
             # Create the current server config from form
             current_server = self._create_server_from_form()
 
-            # Format for Claude Code mcp add command: "claude-code mcp add <name> -- <command> [args...]"
-            command_parts = ["claude-code", "mcp", "add", current_server.name, "--"]
+            # Format for Claude Code mcp add command: "claude mcp add <name> -- <command> [args...]"
+            command_parts = ["claude", "mcp", "add", current_server.name, "--"]
 
             if current_server.transport == TransportType.STDIO:
                 command_parts.append(current_server.command or "")
@@ -398,7 +398,7 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
                 # This is a placeholder as TCP servers typically need custom setup
                 command_parts.extend(
                     [
-                        "# TCP transport not directly supported in claude-code mcp add",
+                        "# TCP transport not directly supported in claude mcp add",
                         f"# Host: {current_server.host or 'localhost'}",
                         f"# Port: {current_server.port or 3333}",
                     ]
@@ -409,7 +409,7 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
                 # This is a placeholder as HTTP servers typically need custom setup
                 command_parts.extend(
                     [
-                        "# HTTP transport not directly supported in claude-code mcp add",
+                        "# HTTP transport not directly supported in claude mcp add",
                         f"# URL: {current_server.url or ''}",
                     ]
                 )

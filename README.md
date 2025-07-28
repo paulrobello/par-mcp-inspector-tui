@@ -5,7 +5,7 @@
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-0.7.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.8.0-green.svg)
 ![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
@@ -667,7 +667,7 @@ uv run pmit copy-code <server-id-or-name>
 - `server-id-or-name`: Server ID or name to copy configuration for (required)
 
 **Features:**
-- **Claude Code Format**: Generates `claude-code mcp add` command syntax
+- **Claude Code Format**: Generates `claude mcp add` command syntax
 - **STDIO Support**: Full support for STDIO transport with command and arguments
 - **Transport Limitations**: Shows helpful comments for TCP/HTTP transports (not directly supported)
 - **Ready to Execute**: Command can be run directly in terminal
@@ -689,13 +689,13 @@ uv run pmit copy-code "Everything"
 **Output Format:**
 ```shell
 # For STDIO servers
-claude-code mcp add "Example STDIO Server" -- npx -y @modelcontextprotocol/server-filesystem /tmp
+claude mcp add "Example STDIO Server" -- npx -y @modelcontextprotocol/server-filesystem /tmp
 
 # For TCP servers (with helpful comments)
-claude-code mcp add "TCP Server" -- # TCP transport not directly supported in claude-code mcp add # Host: localhost # Port: 3333
+claude mcp add "TCP Server" -- # TCP transport not directly supported in claude mcp add # Host: localhost # Port: 3333
 
 # For HTTP servers (with helpful comments)  
-claude-code mcp add "HTTP Server" -- # HTTP transport not directly supported in claude-code mcp add # URL: https://api.example.com/mcp
+claude mcp add "HTTP Server" -- # HTTP transport not directly supported in claude mcp add # URL: https://api.example.com/mcp
 ```
 
 ## Server Configuration
@@ -1050,6 +1050,12 @@ Use 'download-resource my-server-id "<resource-name>"' to download any resource
 Use `--verbose` flag to see raw JSON responses and detailed debugging information.
 
 ## Changelog
+
+### v0.8.0 - Fixed Claude Code Command Format
+- **🔧 Bug Fix**: Fixed server copy commands for Claude Code to use correct `claude` command instead of `claude-code`
+  - Updated CLI copy commands to generate proper `claude mcp add` syntax
+  - Fixed TUI dialog copy functionality
+  - Updated documentation examples
 
 ### v0.7.0 - Scroll Bar Bug Fix
 - **🔧 Bug Fix**: Fixed scroll bar for long tool parameter lists in the TUI interface
