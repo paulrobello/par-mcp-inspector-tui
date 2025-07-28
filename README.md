@@ -5,7 +5,7 @@
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-0.5.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.6.0-green.svg)
 ![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
@@ -18,7 +18,11 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 
 *The MCP Inspector TUI showing a connected "Everything" server with available tools (echo, add, printEnv), tool parameter forms, and real-time interaction logs. The interface displays server management on the left, tabbed content areas in the center, and notifications on the right.*
 
-## 🆕 What's New in v0.5.0
+## 🆕 What's New in v0.6.0
+
+**🔧 Bug Fix**: Fixed missing PyYAML dependency that was causing installation issues.
+
+## What's New in v0.5.0
 
 **🔍 Raw Interactions Tab** - The most requested feature is here! Get complete visibility into MCP JSON-RPC protocol communications:
 - **Real-time Protocol Monitoring**: See every message sent and received between client and server
