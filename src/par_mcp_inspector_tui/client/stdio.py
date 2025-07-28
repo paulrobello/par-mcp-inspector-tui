@@ -107,30 +107,21 @@ class StdioMCPClient(MCPClient):
             logger.debug(f"Creating StdioTransport with command: {command}, args: {self._args}, env: {process_env}")
 
         try:
-            # For TUI mode (non-debug), suppress server stderr to prevent output interference
-            # In debug mode, allow stderr to go to logs for troubleshooting
-            if not self._debug:
-                # Add stderr redirection to null to prevent server output interference with TUI
-                # Some servers write status messages to stderr on startup which can bleed through
-                # to the TUI display. We redirect stderr to /dev/null to prevent this.
-                import shlex
+            # Always suppress server stderr to prevent output interference with TUI
+            # Server stderr often contains status messages that bleed through to TUI display
+            import shlex
 
-                # Build the command string with proper quoting
-                cmd_parts = [shlex.quote(command)] + [shlex.quote(arg) for arg in self._args]
-                # Only redirect stderr - stdout is needed for MCP communication
-                # but stderr often contains server status/logging messages that interfere with TUI
-                cmd_string = " ".join(cmd_parts) + " 2>/dev/null"
+            # Build the command string with proper quoting
+            cmd_parts = [shlex.quote(command)] + [shlex.quote(arg) for arg in self._args]
+            # Only redirect stderr - stdout is needed for MCP communication
+            # but stderr often contains server status/logging messages that interfere with TUI
+            cmd_string = " ".join(cmd_parts) + " 2>/dev/null"
 
-                # Use shell wrapper to enable stderr redirection
-                logger.debug(f"Using stderr-suppressed command: {cmd_string}")
-                self._transport = StdioTransport(
-                    command="sh", args=["-c", cmd_string], env=process_env if process_env else None
-                )
-            else:
-                # In debug mode, allow stderr for troubleshooting
-                self._transport = StdioTransport(
-                    command=command, args=self._args, env=process_env if process_env else None
-                )
+            # Use shell wrapper to enable stderr redirection
+            logger.debug(f"Using stderr-suppressed command: {cmd_string}")
+            self._transport = StdioTransport(
+                command="sh", args=["-c", cmd_string], env=process_env if process_env else None
+            )
 
             # Create notification bridge to handle FastMCP notifications
             notification_bridge = NotificationBridge(self)
@@ -248,8 +239,50 @@ class StdioMCPClient(MCPClient):
             raise MCPClientError("Not connected")
 
         try:
+            # Log the request
+            import json
+
+            self._notify_interaction(json.dumps({"method": "tools/list", "params": {}}), "sent")
+
             async with self._client:
                 tools_data = await self._client.list_tools()
+
+                # Log the response (handle complex objects safely)
+                try:
+                    # Convert tools data to serializable format
+                    serializable_tools = []
+                    for tool in tools_data:
+                        if hasattr(tool, "model_dump"):
+                            # Pydantic model - use model_dump
+                            serializable_tools.append(tool.model_dump())
+                        elif hasattr(tool, "__dict__"):
+                            # Regular object - convert attributes
+                            tool_dict = {}
+                            for key, value in tool.__dict__.items():
+                                if hasattr(value, "model_dump"):
+                                    tool_dict[key] = value.model_dump()
+                                elif hasattr(value, "__dict__"):
+                                    tool_dict[key] = value.__dict__
+                                else:
+                                    tool_dict[key] = (
+                                        str(value)
+                                        if not isinstance(value, str | int | float | bool | type(None))
+                                        else value
+                                    )
+                            serializable_tools.append(tool_dict)
+                        else:
+                            # Already a dict or simple value
+                            serializable_tools.append(tool)
+
+                    self._notify_interaction(json.dumps({"result": {"tools": serializable_tools}}), "received")
+                except (TypeError, AttributeError) as e:
+                    # If serialization still fails, log a more detailed message
+                    self._notify_interaction(
+                        json.dumps(
+                            {"result": {"tools": f"[{len(tools_data)} tools returned - serialization error: {str(e)}]"}}
+                        ),
+                        "received",
+                    )
                 tools = []
 
                 # FastMCP returns the raw tools list
@@ -323,8 +356,54 @@ class StdioMCPClient(MCPClient):
             raise MCPClientError("Not connected")
 
         try:
+            # Log the request
+            import json
+
+            self._notify_interaction(json.dumps({"method": "resources/list", "params": {}}), "sent")
+
             async with self._client:
                 resources_data = await self._client.list_resources()
+
+                # Log the response (handle complex objects safely)
+                try:
+                    # Convert resources data to serializable format
+                    serializable_resources = []
+                    for resource in resources_data:
+                        if hasattr(resource, "model_dump"):
+                            # Pydantic model - use model_dump
+                            serializable_resources.append(resource.model_dump())
+                        elif hasattr(resource, "__dict__"):
+                            # Regular object - convert attributes
+                            resource_dict = {}
+                            for key, value in resource.__dict__.items():
+                                if hasattr(value, "model_dump"):
+                                    resource_dict[key] = value.model_dump()
+                                elif hasattr(value, "__dict__"):
+                                    resource_dict[key] = value.__dict__
+                                else:
+                                    resource_dict[key] = (
+                                        str(value)
+                                        if not isinstance(value, str | int | float | bool | type(None))
+                                        else value
+                                    )
+                            serializable_resources.append(resource_dict)
+                        else:
+                            # Already a dict or simple value
+                            serializable_resources.append(resource)
+
+                    self._notify_interaction(json.dumps({"result": {"resources": serializable_resources}}), "received")
+                except (TypeError, AttributeError) as e:
+                    # If serialization still fails, log a more detailed message
+                    self._notify_interaction(
+                        json.dumps(
+                            {
+                                "result": {
+                                    "resources": f"[{len(resources_data)} resources returned - serialization error: {str(e)}]"
+                                }
+                            }
+                        ),
+                        "received",
+                    )
                 resources = []
                 for resource_info in resources_data:
                     # FastMCP may return Resource objects or dictionaries
@@ -405,8 +484,50 @@ class StdioMCPClient(MCPClient):
             raise MCPClientError("Not connected")
 
         try:
+            # Log the request
+            import json
+
+            self._notify_interaction(json.dumps({"method": "prompts/list", "params": {}}), "sent")
+
             async with self._client:
                 prompts_data = await self._client.list_prompts()
+
+                # Log the response (handle complex objects safely)
+                try:
+                    # Convert prompts data to serializable format
+                    serializable_prompts = []
+                    for prompt in prompts_data:
+                        if hasattr(prompt, "model_dump"):
+                            # Pydantic model - use model_dump
+                            serializable_prompts.append(prompt.model_dump())
+                        elif hasattr(prompt, "__dict__"):
+                            # Regular object - convert attributes
+                            prompt_dict = {}
+                            for key, value in prompt.__dict__.items():
+                                if hasattr(value, "model_dump"):
+                                    prompt_dict[key] = value.model_dump()
+                                elif hasattr(value, "__dict__"):
+                                    prompt_dict[key] = value.__dict__
+                                else:
+                                    prompt_dict[key] = value
+                            serializable_prompts.append(prompt_dict)
+                        else:
+                            # Already a dict or simple value
+                            serializable_prompts.append(prompt)
+
+                    self._notify_interaction(json.dumps({"result": {"prompts": serializable_prompts}}), "received")
+                except (TypeError, AttributeError) as e:
+                    # If serialization still fails, log a more detailed message
+                    self._notify_interaction(
+                        json.dumps(
+                            {
+                                "result": {
+                                    "prompts": f"[{len(prompts_data)} prompts returned - serialization error: {str(e)}]"
+                                }
+                            }
+                        ),
+                        "received",
+                    )
                 prompts = []
                 for prompt_info in prompts_data:
                     # FastMCP may return Prompt objects or dictionaries
@@ -473,8 +594,22 @@ class StdioMCPClient(MCPClient):
             raise MCPClientError("Not connected")
 
         try:
+            # Log the request
+            request_data = {"method": "tools/call", "params": {"name": name, "arguments": arguments}}
+            self._notify_interaction(f'{{"method": "tools/call", "params": {request_data["params"]}}}', "sent")
+
             async with self._client:
                 result = await self._client.call_tool(name, arguments)
+
+                # Log the response (handle complex objects safely)
+                import json
+
+                try:
+                    self._notify_interaction(json.dumps({"result": result}), "received")
+                except (TypeError, AttributeError):
+                    # If serialization fails, log a simple message
+                    self._notify_interaction(json.dumps({"result": "[Tool execution completed]"}), "received")
+
                 return result
         except Exception as e:
             raise MCPClientError(f"Failed to call tool {name}: {e}")
@@ -485,8 +620,24 @@ class StdioMCPClient(MCPClient):
             raise MCPClientError("Not connected")
 
         try:
+            # Log the request
+            request_data = {"method": "resources/read", "params": {"uri": uri}}
+            import json
+
+            self._notify_interaction(json.dumps(request_data), "sent")
+
             async with self._client:
                 result = await self._client.read_resource(uri)
+
+                # Log the response (handle complex objects safely)
+                import json
+
+                try:
+                    self._notify_interaction(json.dumps({"result": result}), "received")
+                except (TypeError, AttributeError):
+                    # If serialization fails, log a simple message
+                    self._notify_interaction(json.dumps({"result": "[Resource read completed]"}), "received")
+
                 return result
         except Exception as e:
             raise MCPClientError(f"Failed to read resource {uri}: {e}")
@@ -497,8 +648,24 @@ class StdioMCPClient(MCPClient):
             raise MCPClientError("Not connected")
 
         try:
+            # Log the request
+            request_data = {"method": "prompts/get", "params": {"name": name, "arguments": arguments}}
+            import json
+
+            self._notify_interaction(json.dumps(request_data), "sent")
+
             async with self._client:
                 result = await self._client.get_prompt(name, arguments)
+
+                # Log the response (handle complex objects safely)
+                import json
+
+                try:
+                    self._notify_interaction(json.dumps({"result": result}), "received")
+                except (TypeError, AttributeError):
+                    # If serialization fails, log a simple message
+                    self._notify_interaction(json.dumps({"result": "[Prompt retrieved]"}), "received")
+
                 return result
         except Exception as e:
             raise MCPClientError(f"Failed to get prompt {name}: {e}")

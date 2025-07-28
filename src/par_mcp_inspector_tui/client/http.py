@@ -71,7 +71,20 @@ class HttpMCPClient(MCPClient):
                     logger.debug(f"Error closing client: {e}")
             self._client = None
 
-        self._transport = None
+        # Explicitly close transport if it has close method
+        if self._transport:
+            try:
+                if hasattr(self._transport, "close"):
+                    await self._transport.close()
+                elif hasattr(self._transport, "_session"):
+                    # Close underlying aiohttp session if accessible
+                    session = getattr(self._transport, "_session", None)
+                    if session and hasattr(session, "close"):
+                        await session.close()
+            except Exception as e:
+                if self._debug:
+                    logger.debug(f"Error closing transport: {e}")
+            self._transport = None
 
         if self._debug:
             logger.debug("Disconnected from HTTP endpoint")

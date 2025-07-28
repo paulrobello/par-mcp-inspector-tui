@@ -3,7 +3,7 @@ name = "par-mcp-inspector-tui"
 dynamic = [
     "version",
 ]
-description = "PAR MCP Inspector TUI"
+description = "PAR MCP Inspector TUI - Terminal interface for MCP servers with smart content detection, syntax highlighting, and protocol debugging"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -45,6 +45,7 @@ dependencies = [
     "filetype>=1.2.0",
     "fastmcp>=2.3.0",
     "websockets>=12.0",
+    "pyperclip>=1.9.0",
 ]
 
 [project.license]

@@ -1,6 +1,6 @@
 """Tools view widget."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rich.text import Text
 from textual import work
@@ -11,6 +11,7 @@ from textual.widgets import Button, Label, ListItem, ListView, Static
 
 from ...models import Tool
 from ...services import MCPService
+from ...utils.content_detection import detect_content_type, extract_file_path_from_content
 from .dynamic_form import DynamicForm
 
 if TYPE_CHECKING:
@@ -271,10 +272,26 @@ class ToolsView(Widget):
 
                     final_content = "\n\n".join(formatted_content)
                     self.app.debug_log(f"Final formatted content length: {len(final_content)}")
-                    self.app.debug_log(
-                        f"Calling show_response with title='Tool: {self.selected_tool.name}', content_type='text'"
+
+                    # Detect appropriate content type using smart detection
+                    detected_file_path = extract_file_path_from_content(final_content)
+                    detected_content_type = detect_content_type(
+                        content=final_content, file_path=detected_file_path, tool_arguments=arguments
                     )
-                    self.app.show_response(f"Tool: {self.selected_tool.name}", final_content, "text")
+
+                    # Add file location header if we can detect a file path from tool arguments
+                    enhanced_content = self._enhance_content_with_file_info(
+                        final_content, arguments, detected_file_path
+                    )
+
+                    self.app.debug_log(
+                        f"Content detection: file_path='{detected_file_path}', "
+                        f"detected_type='{detected_content_type}', tool_args={arguments}"
+                    )
+                    self.app.debug_log(
+                        f"Calling show_response with title='Tool: {self.selected_tool.name}', content_type='{detected_content_type}'"
+                    )
+                    self.app.show_response(f"Tool: {self.selected_tool.name}", enhanced_content, detected_content_type)
                 else:
                     self.app.debug_log("Using fallback - showing result as JSON")
                     self.app.show_response(f"Tool: {self.selected_tool.name}", str(result), "json")
@@ -286,3 +303,45 @@ class ToolsView(Widget):
 
             self.app.debug_log(f"Traceback: {traceback.format_exc()}", "error")
             self.app.notify_error(f"Failed to execute tool: {e}")
+
+    def _enhance_content_with_file_info(
+        self, content: str, arguments: dict[str, Any], detected_file_path: str | None
+    ) -> str:
+        """Enhance content with file location information if a file path is available.
+
+        Args:
+            content: Original content
+            arguments: Tool arguments that might contain file paths
+            detected_file_path: File path detected from content
+
+        Returns:
+            Enhanced content with file location header if applicable
+        """
+        # Try to get file path from tool arguments first, then from detected content
+        file_path = None
+
+        # Check common parameter names for file paths
+        path_params = ["path", "file_path", "filepath", "filename", "file", "uri"]
+        for param in path_params:
+            if param in arguments:
+                value = arguments[param]
+                if isinstance(value, str) and value:
+                    # Handle file:// URIs
+                    if value.startswith("file://"):
+                        file_path = value[7:]  # Remove file:// prefix
+                    else:
+                        file_path = value
+                    break
+
+        # Fall back to detected file path from content
+        if not file_path:
+            file_path = detected_file_path
+
+        # If we have a file path and it's not already in the content, add file location header
+        if file_path and "• File Location:" not in content:
+            enhanced_content = f"""• File Location: {file_path}
+
+{content}"""
+            return enhanced_content
+
+        return content

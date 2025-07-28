@@ -4,7 +4,10 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    pass
 
 from ..client import HttpMCPClient, MCPClient, MCPClientError, StdioMCPClient, TcpMCPClient
 from ..models import (
@@ -35,6 +38,7 @@ class MCPService:
         self._connection_lock = asyncio.Lock()
         self._state_callbacks: list[Callable[[ServerState], None]] = []
         self._notification_callbacks: list[Callable[[ServerNotification], None]] = []
+        self._interaction_callbacks: list[Callable[[str, str, datetime], None]] = []
         self._debug: bool = debug
         self._roots: list[str] = roots or []
 
@@ -61,6 +65,14 @@ class MCPService:
         """Register a server notification callback."""
         self._notification_callbacks.append(callback)
 
+    def on_interaction(self, callback: Callable[[str, str, "datetime"], None]) -> None:
+        """Register an interaction callback.
+
+        Args:
+            callback: Function called with (message, interaction_type, timestamp) for each interaction
+        """
+        self._interaction_callbacks.append(callback)
+
     def _notify_state_change(self, state: ServerState) -> None:
         """Notify all state change callbacks."""
         if self._server:
@@ -79,6 +91,24 @@ class MCPService:
                 callback(notification)
             except Exception as e:
                 logger.error(f"Error in notification callback: {e}")
+
+    def _notify_interaction(self, message: str, interaction_type: str, timestamp: "datetime") -> None:
+        """Notify all interaction callbacks.
+
+        Args:
+            message: Raw JSON message
+            interaction_type: Whether this was sent or received
+            timestamp: When the interaction occurred
+        """
+        if self._debug:
+            logger.debug(
+                f"MCP Service _notify_interaction: {interaction_type} - {len(self._interaction_callbacks)} callbacks"
+            )
+        for callback in self._interaction_callbacks:
+            try:
+                callback(message, interaction_type, timestamp)
+            except Exception as e:
+                logger.error(f"Error in interaction callback: {e}")
 
     def _handle_mcp_notification(self, mcp_notification: MCPNotification) -> None:
         """Handle incoming MCP notification from server."""
@@ -193,6 +223,12 @@ class MCPService:
                 self._client.on_notification(ServerNotificationType.PROMPTS_LIST_CHANGED, self._handle_mcp_notification)
                 self._client.on_notification(ServerNotificationType.MESSAGE, self._handle_mcp_notification)
 
+                # Register interaction handler
+                self._client.on_interaction(self._notify_interaction)
+
+                if self._debug:
+                    logger.debug("Registered interaction handler with client")
+
                 if self._debug:
                     logger.debug(f"Registered handlers for: {list(ServerNotificationType)}")
 
@@ -219,6 +255,10 @@ class MCPService:
 
         try:
             await self._client.disconnect()
+            # Small delay to allow cleanup to complete
+            import asyncio
+
+            await asyncio.sleep(0.05)
         except Exception as e:
             logger.error(f"Error disconnecting: {e}")
         finally:

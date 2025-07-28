@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from dotenv import load_dotenv
@@ -352,6 +352,209 @@ def roots_remove(
 ) -> None:
     """Remove a filesystem root from a server configuration."""
     asyncio.run(_remove_root(server_id, path))
+
+
+@app.command()
+def copy_config(
+    server_id_or_name: Annotated[str, typer.Argument(help="Server ID or name to copy config for")],
+    format_type: Annotated[
+        str,
+        typer.Option("--format", "-f", help="Config format (desktop|code)"),
+    ] = "desktop",
+) -> None:
+    """Copy server configuration to clipboard in specified format.
+
+    Formats:
+    - desktop: Claude Desktop config.json format
+    - code: Claude Code mcp add command format
+    """
+    try:
+        setup_logging(debug=False)  # No debug logging for simple operation
+        server_manager = ServerManager()
+        servers = server_manager.list_servers()
+
+        # Find server by ID or name
+        server = next((s for s in servers if s.id == server_id_or_name), None)
+        if not server:
+            server = next((s for s in servers if s.name.lower() == server_id_or_name.lower()), None)
+
+        if not server:
+            console.print(f"[bold red]Error:[/bold red] Server '{server_id_or_name}' not found")
+            console.print("Available servers:")
+            for s in servers:
+                console.print(f"  - {s.id}: {s.name}")
+            raise typer.Exit(code=1)
+
+        if format_type.lower() in ["desktop", "d"]:
+            _copy_for_claude_desktop_cli(server)
+        elif format_type.lower() in ["code", "c"]:
+            _copy_for_claude_code_cli(server)
+        else:
+            console.print(f"[bold red]Error:[/bold red] Unknown format '{format_type}'. Use 'desktop' or 'code'")
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def copy_desktop(
+    server_id_or_name: Annotated[str, typer.Argument(help="Server ID or name to copy config for")],
+) -> None:
+    """Copy server configuration to clipboard in Claude Desktop format."""
+    try:
+        setup_logging(debug=False)  # No debug logging for simple operation
+        server_manager = ServerManager()
+        servers = server_manager.list_servers()
+
+        # Find server by ID or name
+        server = next((s for s in servers if s.id == server_id_or_name), None)
+        if not server:
+            server = next((s for s in servers if s.name.lower() == server_id_or_name.lower()), None)
+
+        if not server:
+            console.print(f"[bold red]Error:[/bold red] Server '{server_id_or_name}' not found")
+            console.print("Available servers:")
+            for s in servers:
+                console.print(f"  - {s.id}: {s.name}")
+            raise typer.Exit(code=1)
+
+        _copy_for_claude_desktop_cli(server)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def copy_code(
+    server_id_or_name: Annotated[str, typer.Argument(help="Server ID or name to copy config for")],
+) -> None:
+    """Copy server configuration to clipboard in Claude Code format."""
+    try:
+        setup_logging(debug=False)  # No debug logging for simple operation
+        server_manager = ServerManager()
+        servers = server_manager.list_servers()
+
+        # Find server by ID or name
+        server = next((s for s in servers if s.id == server_id_or_name), None)
+        if not server:
+            server = next((s for s in servers if s.name.lower() == server_id_or_name.lower()), None)
+
+        if not server:
+            console.print(f"[bold red]Error:[/bold red] Server '{server_id_or_name}' not found")
+            console.print("Available servers:")
+            for s in servers:
+                console.print(f"  - {s.id}: {s.name}")
+            raise typer.Exit(code=1)
+
+        _copy_for_claude_code_cli(server)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        raise typer.Exit(code=1)
+
+
+def _copy_for_claude_desktop_cli(server: MCPServer) -> None:
+    """Copy server config in Claude Desktop format to clipboard."""
+    try:
+        import json
+
+        # Format for Claude Desktop config.json
+        desktop_config = {server.name: _server_to_desktop_config(server)}
+        config_text = json.dumps(desktop_config, indent=2)
+
+        # Copy to clipboard
+        import pyperclip
+
+        pyperclip.copy(config_text)
+
+        console.print(
+            f"[bold green]✓ Server config for '{server.name}' copied to clipboard in Claude Desktop format[/bold green]"
+        )
+        if console.is_terminal:
+            console.print(f"[dim]Preview:[/dim]\n{config_text}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error copying config:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+def _copy_for_claude_code_cli(server: MCPServer) -> None:
+    """Copy server config in Claude Code MCP add format to clipboard."""
+    try:
+        # Format for Claude Code mcp add command: "claude-code mcp add <name> -- <command> [args...]"
+        command_parts = ["claude-code", "mcp", "add", server.name, "--"]
+
+        if server.transport == TransportType.STDIO:
+            command_parts.append(server.command or "")
+            # Add arguments
+            if server.args:
+                command_parts.extend(server.args)
+
+        elif server.transport == TransportType.TCP:
+            # For TCP transport, we need to represent it as a command that would start a TCP server
+            # This is a placeholder as TCP servers typically need custom setup
+            command_parts.extend(
+                [
+                    "# TCP transport not directly supported in claude-code mcp add",
+                    f"# Host: {server.host or 'localhost'}",
+                    f"# Port: {server.port or 3333}",
+                ]
+            )
+
+        elif server.transport == TransportType.HTTP:
+            # For HTTP transport, we need to represent it as a command that would start an HTTP server
+            # This is a placeholder as HTTP servers typically need custom setup
+            command_parts.extend(
+                [
+                    "# HTTP transport not directly supported in claude-code mcp add",
+                    f"# URL: {server.url or ''}",
+                ]
+            )
+
+        command_text = " ".join(command_parts)
+
+        # Copy to clipboard
+        import pyperclip
+
+        pyperclip.copy(command_text)
+
+        console.print(
+            f"[bold green]✓ MCP add command for '{server.name}' copied to clipboard for Claude Code[/bold green]"
+        )
+        if console.is_terminal:
+            console.print(f"[dim]Preview:[/dim]\n{command_text}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error copying command:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+def _server_to_desktop_config(server: MCPServer) -> dict[str, Any]:
+    """Convert MCPServer to Claude Desktop config format."""
+
+    if server.transport == TransportType.STDIO:
+        config: dict[str, Any] = {
+            "command": server.command or "",
+        }
+
+        if server.args:
+            config["args"] = server.args
+
+        if server.env:
+            config["env"] = server.env
+
+        return config
+
+    elif server.transport == TransportType.TCP:
+        return {"transport": {"type": "tcp", "host": server.host or "localhost", "port": server.port or 3333}}
+
+    elif server.transport == TransportType.HTTP:
+        return {"transport": {"type": "http", "url": server.url or ""}}
+
+    return {}
 
 
 async def _list_roots(server_id: str | None, verbose: bool) -> None:

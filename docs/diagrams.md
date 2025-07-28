@@ -19,6 +19,9 @@ flowchart TD
     B -->|roots-list| Z[List Filesystem Roots]
     B -->|roots-add| Y[Add Filesystem Root]
     B -->|roots-remove| X[Remove Filesystem Root]
+    B -->|copy-config| W1[Copy Server Config<br/>Universal Format]
+    B -->|copy-desktop| W2[Copy Desktop Config<br/>Claude Desktop]
+    B -->|copy-code| W3[Copy Code Config<br/>Claude Code]
 
     C --> I[Server Manager<br/>Load Configuration]
     C --> J[MCP Service<br/>Connection Management]
@@ -28,10 +31,16 @@ flowchart TD
     H --> J
     H --> AA[File Type Detection<br/>Magic Numbers]
     H --> BB[File Download<br/>Auto-naming]
-    
+
     Z --> I
     Y --> I  
     X --> I
+    W1 --> I
+    W2 --> I
+    W3 --> I
+    W1 --> CC[System Clipboard]
+    W2 --> CC
+    W3 --> CC
 
     I --> L[servers.yaml<br/>Configuration]
 

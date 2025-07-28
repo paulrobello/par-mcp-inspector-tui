@@ -6,7 +6,10 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from os import path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from ..models import (
     MCPNotification,
@@ -20,6 +23,8 @@ from ..models import (
 )
 
 logger = logging.getLogger(__name__)
+
+InteractionType = Literal["sent", "received"]
 
 
 class MCPClientError(Exception):
@@ -45,6 +50,7 @@ class MCPClient(ABC):
         self._request_id: int = 0
         self._pending_requests: dict[str | int, asyncio.Future[MCPResponse]] = {}
         self._notification_handlers: dict[str, list[Callable[[MCPNotification], None]]] = {}
+        self._interaction_handlers: list[Callable[[str, InteractionType, datetime], None]] = []
         self._server_info: ServerInfo | None = None
         self._debug: bool = debug
         self._roots: list[str] = roots or []
@@ -97,6 +103,10 @@ class MCPClient(ABC):
         request_json = request.model_dump_json() + "\n"
         if self._debug:
             logger.debug(f"Sending: {request_json.strip()}")
+
+        # Notify interaction handlers
+        self._notify_interaction(request_json.strip(), "sent")
+
         await self._send_data(request_json)
 
         # Wait for response with timeout
@@ -104,6 +114,9 @@ class MCPClient(ABC):
             response = await asyncio.wait_for(future, timeout=10.0)
             if self._debug:
                 logger.debug(f"Received: {response.model_dump_json()}")
+
+            # Note: interaction notification already handled in _handle_incoming_data with raw data
+
             if response.error:
                 raise MCPClientError(f"Server error: {response.error.message}")
             return response
@@ -120,6 +133,10 @@ class MCPClient(ABC):
         notification_json = notification.model_dump_json() + "\n"
         if self._debug:
             logger.debug(f"Sending notification: {notification_json.strip()}")
+
+        # Notify interaction handlers
+        self._notify_interaction(notification_json.strip(), "sent")
+
         await self._send_data(notification_json)
 
     async def _handle_incoming_data(self, data: str) -> None:
@@ -129,6 +146,9 @@ class MCPClient(ABC):
 
             if self._debug:
                 logger.debug(f"Raw incoming: {data.strip()}")
+
+            # Notify interaction handlers
+            self._notify_interaction(data.strip(), "received")
 
             # Check if it's a response
             if "id" in message and ("result" in message or "error" in message):
@@ -221,6 +241,34 @@ class MCPClient(ABC):
         if method not in self._notification_handlers:
             self._notification_handlers[method] = []
         self._notification_handlers[method].append(handler)
+
+    def on_interaction(self, handler: Callable[[str, InteractionType, "datetime"], None]) -> None:
+        """Register an interaction handler for capturing raw MCP messages.
+
+        Args:
+            handler: Function called with (message, interaction_type, timestamp) for each interaction
+        """
+        self._interaction_handlers.append(handler)
+
+    def _notify_interaction(self, message: str, interaction_type: InteractionType) -> None:
+        """Notify all interaction handlers of a new message.
+
+        Args:
+            message: Raw JSON message
+            interaction_type: Whether this was sent or received
+        """
+        from datetime import datetime
+
+        timestamp = datetime.now()
+        if self._debug:
+            logger.debug(
+                f"_notify_interaction: {interaction_type} - {len(self._interaction_handlers)} handlers - {message[:100]}..."
+            )
+        for handler in self._interaction_handlers:
+            try:
+                handler(message, interaction_type, timestamp)
+            except Exception as e:
+                logger.error(f"Error in interaction handler: {e}")
 
     async def initialize(self) -> ServerInfo:
         """Initialize connection and get server info."""

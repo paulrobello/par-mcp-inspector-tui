@@ -5,7 +5,7 @@
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-0.4.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.5.0-green.svg)
 ![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
@@ -18,17 +18,44 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 
 *The MCP Inspector TUI showing a connected "Everything" server with available tools (echo, add, printEnv), tool parameter forms, and real-time interaction logs. The interface displays server management on the left, tabbed content areas in the center, and notifications on the right.*
 
+## 🆕 What's New in v0.5.0
+
+**🔍 Raw Interactions Tab** - The most requested feature is here! Get complete visibility into MCP JSON-RPC protocol communications:
+- **Real-time Protocol Monitoring**: See every message sent and received between client and server
+- **Rich JSON Display**: Syntax-highlighted JSON with color-coded message direction
+- **Advanced Search**: Regex pattern matching across entire message content for powerful debugging
+- **Universal Compatibility**: Works with all MCP servers (STDIO, HTTP, filesystem, etc.)
+- **Developer Essential**: Perfect for MCP server development, debugging, and protocol analysis
+
+**🎨 Smart Content Detection & Viewers** - Tool results now automatically use appropriate viewers based on content type:
+- **Intelligent Detection**: Automatically detects content type from file extensions, MIME types, and content patterns
+- **Markdown Rendering**: `.md` files display with proper formatting, headers, lists, and code blocks
+- **Syntax Highlighting**: Code files (.py, .js, .ts, .html, .css, etc.) get language-specific highlighting
+- **JSON Pretty-Printing**: JSON responses are automatically formatted with syntax highlighting
+- **File Location Integration**: File path display with copy button and Ctrl+O quick-open functionality
+- **20+ Languages Supported**: Python, JavaScript, TypeScript, HTML, CSS, YAML, TOML, and more
+
+**Plus**: Enhanced clipboard integration, improved search functionality, and critical bug fixes for filesystem servers.
+
+[📖 See full changelog](#changelog) for complete details.
+
 ## Features
 
 - **Multiple Transport Support**: Connect to MCP servers via STDIO and HTTP+SSE
 - **MCP Roots Support**: Full implementation of MCP filesystem roots protocol with TUI and CLI management
+- **Raw Interactions Monitoring**: Real-time display of all MCP JSON-RPC protocol messages with syntax highlighting
+- **Smart Content Detection**: Automatic content type detection and appropriate viewer selection for tool results
+- **Enhanced Tool Results Display**: File location headers with copy buttons and Ctrl+O quick-open functionality
+- **Multi-Language Syntax Highlighting**: Support for 20+ programming languages and file formats
+- **Intelligent Markdown Rendering**: Automatic detection and rich rendering of Markdown content
 - **CLI Debugging Tools**: Connect to arbitrary servers and inspect interactions without configuration
 - **Resource Download CLI**: Download resources by name with automatic file type detection
 - **Real-time Introspection**: Discover tools, prompts, and resources from connected servers
 - **Dynamic Forms**: Automatically generated forms based on server-provided schemas with real-time validation
 - **Form Validation**: Smart execute button control - disabled until all required fields are filled
 - **Magic Number Detection**: Automatic file type detection using magic numbers for binary resources
-- **Syntax Highlighting**: Rich response formatting with support for JSON, Markdown, and code
+- **Advanced Content Viewers**: JSON pretty-printing, code syntax highlighting, and markdown rendering
+- **Regex Search**: Real-time filtering of MCP responses and raw interactions with regex pattern matching
 - **File Management**: Save and open resources with proper file extensions and MIME type handling
 - **Server Management**: Persistent configuration storage for multiple server connections
 - **Non-blocking Operations**: Async communication ensuring responsive UI
@@ -146,6 +173,11 @@ pmit download-resource <server-id> <resource-name>
 pmit roots-list [server-id]
 pmit roots-add <server-id> <path>
 pmit roots-remove <server-id> <path>
+
+# Copy server configurations to clipboard
+pmit copy-config <server-id-or-name> [--format desktop|code]
+pmit copy-desktop <server-id-or-name>
+pmit copy-code <server-id-or-name>
 ```
 
 If running from source:
@@ -181,6 +213,11 @@ uv run pmit download-resource <server-id> <resource-name>
 uv run pmit roots-list [server-id]
 uv run pmit roots-add <server-id> <path>
 uv run pmit roots-remove <server-id> <path>
+
+# Copy server configurations to clipboard
+uv run pmit copy-config <server-id-or-name> [--format desktop|code]
+uv run pmit copy-desktop <server-id-or-name>
+uv run pmit copy-code <server-id-or-name>
 ```
 
 ### TUI Application
@@ -519,9 +556,139 @@ uv run pmit roots-remove my-server-id /tmp/workspace
 uv run pmit roots-remove my-server-id file:///home/user/documents
 ```
 
+### `copy-config` - Copy Server Configuration (Universal)
+```shell
+# If installed from PyPI
+pmit copy-config <server-id-or-name> [OPTIONS]
+
+# If running from source
+uv run pmit copy-config <server-id-or-name> [OPTIONS]
+```
+
+**Arguments:**
+- `server-id-or-name`: Server ID or name to copy configuration for (required)
+
+**Options:**
+- `--format -f`: Config format (desktop|code) - default: desktop
+
+**Features:**
+- **Dual Format Support**: Copy configurations for Claude Desktop or Claude Code
+- **Server Lookup**: Accepts both server ID and server name (case-insensitive)
+- **Error Handling**: Shows available servers if specified server not found
+- **Preview Output**: Shows copied content when run in terminal
+- **Format Shortcuts**: Supports "d" for desktop and "c" for code
+
+**Examples:**
+```shell
+# Copy for Claude Desktop (default format) - PyPI installation
+pmit copy-config "Example STDIO Server"
+
+# Copy for Claude Code using format option
+pmit copy-config "filesystem-server" --format code
+
+# Use format shortcuts
+pmit copy-config "Everything" -f c
+
+# Use server ID instead of name
+pmit copy-config a49a17c3-a91c-4757-8ec8-effa589fffa1 --format desktop
+
+# From source
+uv run pmit copy-config "Example STDIO Server"
+uv run pmit copy-config "filesystem-server" --format code
+```
+
+### `copy-desktop` - Copy Claude Desktop Configuration
+```shell
+# If installed from PyPI
+pmit copy-desktop <server-id-or-name>
+
+# If running from source
+uv run pmit copy-desktop <server-id-or-name>
+```
+
+**Arguments:**
+- `server-id-or-name`: Server ID or name to copy configuration for (required)
+
+**Features:**
+- **Claude Desktop Format**: Generates config.json format for Claude Desktop MCP configuration
+- **Complete Transport Support**: Handles STDIO, TCP, and HTTP transport configurations
+- **Environment Variables**: Includes all environment variables and command arguments
+- **Immediate Clipboard**: Automatically copies to system clipboard
+- **Preview Display**: Shows the copied JSON configuration in terminal
+
+**Examples:**
+```shell
+# Copy STDIO server config for Claude Desktop - PyPI installation
+pmit copy-desktop "Example STDIO Server"
+
+# Copy HTTP server config using server ID
+pmit copy-desktop 47221007-90ba-4c6f-8dce-a5167f819309
+
+# From source
+uv run pmit copy-desktop "Example STDIO Server"
+uv run pmit copy-desktop "Everything"
+```
+
+**Output Format:**
+```json
+{
+  "Example STDIO Server": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+    "env": {
+      "NODE_ENV": "production"
+    }
+  }
+}
+```
+
+### `copy-code` - Copy Claude Code MCP Add Command
+```shell
+# If installed from PyPI
+pmit copy-code <server-id-or-name>
+
+# If running from source
+uv run pmit copy-code <server-id-or-name>
+```
+
+**Arguments:**
+- `server-id-or-name`: Server ID or name to copy configuration for (required)
+
+**Features:**
+- **Claude Code Format**: Generates `claude-code mcp add` command syntax
+- **STDIO Support**: Full support for STDIO transport with command and arguments
+- **Transport Limitations**: Shows helpful comments for TCP/HTTP transports (not directly supported)
+- **Ready to Execute**: Command can be run directly in terminal
+- **Complete Syntax**: Includes server name, command, and all arguments
+
+**Examples:**
+```shell
+# Copy MCP add command for Claude Code - PyPI installation
+pmit copy-code "Example STDIO Server"
+
+# Copy using server ID
+pmit copy-code 90ab905f-dc7c-48f1-8696-5b43a609d549
+
+# From source
+uv run pmit copy-code "Example STDIO Server"
+uv run pmit copy-code "Everything"
+```
+
+**Output Format:**
+```shell
+# For STDIO servers
+claude-code mcp add "Example STDIO Server" -- npx -y @modelcontextprotocol/server-filesystem /tmp
+
+# For TCP servers (with helpful comments)
+claude-code mcp add "TCP Server" -- # TCP transport not directly supported in claude-code mcp add # Host: localhost # Port: 3333
+
+# For HTTP servers (with helpful comments)  
+claude-code mcp add "HTTP Server" -- # HTTP transport not directly supported in claude-code mcp add # URL: https://api.example.com/mcp
+```
+
 ## Server Configuration
 
-The TUI application stores server configurations in `~/.config/mcp-inspector/servers.yaml`. Example configuration:
+The TUI application stores server configurations in `~/.config/par-mcp-inspector-tui/servers.yaml`. Example configuration:
 
 ```yaml
 servers:
@@ -618,6 +785,7 @@ servers:
   - **Prompts**: Execute prompts with dynamic argument forms and validation
   - **Tools**: Call tools with smart parameter validation and form controls
   - **Roots**: Manage filesystem roots for MCP server access boundaries
+  - **Raw Interactions**: Real-time display of MCP JSON-RPC protocol messages with syntax highlighting and regex search
   - **Notifications**: Real-time server notifications with auto-refresh capabilities
 - **Right Panel**: Response viewer with formatted output and syntax highlighting
 
@@ -668,6 +836,40 @@ The **Roots** tab provides comprehensive management of filesystem boundaries for
 - **Protocol Compliance**: Implements MCP `roots/list` protocol specification
 - **Boundary Enforcement**: Servers use roots to restrict filesystem access
 - **Notification Support**: Responds to `notifications/roots/list_changed` from servers
+
+### Raw Interactions Monitoring
+
+The **Raw Interactions** tab provides comprehensive monitoring of all MCP JSON-RPC protocol messages:
+
+**Interaction Display Features:**
+- **Real-time Capture**: Automatically captures all sent and received messages during server communication
+- **Syntax Highlighting**: Rich JSON formatting with color-coded syntax highlighting
+- **Message Direction**: Visual distinction between sent (green theme) and received (blue theme) messages
+- **Timestamps**: Precise timestamps (HH:MM:SS.ms) for each interaction
+- **Chronological Order**: Newest interactions appear at the top
+
+**Search and Filtering:**
+- **Regex Search**: Real-time filtering with regex pattern matching
+- **Full-text Search**: Search across entire JSON message content
+- **Graceful Fallback**: Invalid regex patterns fall back to simple string search
+- **Pattern Highlighting**: Search matches are highlighted within the JSON content
+
+**Technical Features:**
+- **Memory Management**: Automatically limits to 200 interactions to prevent memory issues
+- **Performance Optimized**: Efficient display updates without blocking the UI
+- **Error Handling**: Graceful handling of malformed JSON or connection issues
+- **Protocol Coverage**: Captures all MCP operations including:
+  - Connection handshake and initialization
+  - Resource/tool/prompt listing operations
+  - Tool execution and resource reading
+  - Server notifications and responses
+  - Error messages and protocol exceptions
+
+**Use Cases:**
+- **Protocol Debugging**: Understand exactly what messages are being exchanged
+- **Server Development**: Validate MCP server implementations
+- **Performance Analysis**: Monitor response times and message patterns
+- **Troubleshooting**: Identify communication issues between client and server
 
 ### Server Management
 
@@ -830,6 +1032,48 @@ Use 'download-resource my-server-id "<resource-name>"' to download any resource
 Use `--verbose` flag to see raw JSON responses and detailed debugging information.
 
 ## Changelog
+
+### v0.5.0 - Raw Interactions Monitoring, Smart Content Detection & Configuration Export
+- **🔍 Raw Interactions Tab**: Brand new tab for comprehensive MCP JSON-RPC protocol monitoring
+  - Real-time capture and display of all sent and received MCP messages
+  - Rich JSON syntax highlighting with color-coded message direction (green=sent, blue=received)
+  - Precise timestamps (HH:MM:SS.ms) with chronological ordering (newest first)
+  - Memory management with automatic limiting to 200 interactions for performance
+  - Universal compatibility with all MCP servers and transport types
+- **🔎 Advanced Interaction Search**: Powerful regex search functionality for protocol debugging
+  - Real-time regex pattern matching across entire JSON message content
+  - Full-text search with graceful fallback for invalid regex patterns
+  - Essential tool for MCP server development and troubleshooting
+- **🎨 Smart Content Detection & Viewers**: Revolutionary automatic content type detection for tool results
+  - **Multi-Strategy Detection**: File extension analysis, MIME type mapping, and content pattern recognition
+  - **Intelligent Markdown Rendering**: Automatic detection and rich rendering of `.md` files with headers, lists, code blocks, and formatting
+  - **Advanced Syntax Highlighting**: 20+ programming languages including Python, JavaScript, TypeScript, HTML, CSS, YAML, TOML, SQL, Bash, and more
+  - **JSON Pretty-Printing**: Automatic detection and beautiful formatting of JSON responses
+  - **File Integration**: Seamless file location headers with copy buttons and Ctrl+O quick-open functionality
+  - **Content Pattern Analysis**: Smart detection even without file extensions using content structure analysis
+- **📁 Enhanced Tool Results Display**: Complete file management integration for tool outputs
+  - File location display with one-click copy to clipboard functionality
+  - Ctrl+O keyboard shortcut for instant file opening with default applications
+  - Clean separation of file metadata from content rendering
+  - Cross-platform file opening support (macOS, Windows, Linux)
+- **📋 Clipboard Copy Commands**: Three new CLI commands for copying server configurations to clipboard
+  - `pmit copy-config <server> [--format desktop|code]` - Universal command with format selection
+  - `pmit copy-desktop <server>` - Direct Claude Desktop config.json format
+  - `pmit copy-code <server>` - Direct Claude Code mcp add command format
+- **🔄 Multi-Format Support**: Copy configurations for both Claude Desktop and Claude Code
+- **🎯 Smart Server Lookup**: Support for both server ID and server name (case-insensitive)
+- **📄 Format Options**: Desktop format (JSON config) and Code format (mcp add command)
+- **⚡ Quick Access**: Direct commands for common use cases without format selection
+- **🖥️ Terminal Preview**: Shows copied content when run in terminal for verification
+- **🛠️ Enhanced Workflow**: Streamlines server configuration sharing between applications
+- **🔍 Enhanced Response Search**: Improved regex search for MCP responses with full-width layout
+  - Live search input field in response viewer with regex pattern matching
+  - Case-insensitive search across both response titles and content
+  - Graceful fallback to simple string search for invalid regex patterns
+  - Real-time filtering as you type with instant visual feedback
+- **🐛 Critical Bug Fix**: Fixed missing interaction callback transfer for filesystem servers
+  - Raw interactions now properly display for all server types including filesystem servers
+  - Resolved timing issue where interaction callbacks weren't transferred when creating new MCP services with roots
 
 ### v0.4.0 - MCP Roots Protocol & Enhanced Filesystem Support
 - **🌿 MCP Roots Protocol Implementation**: Full support for MCP filesystem roots protocol

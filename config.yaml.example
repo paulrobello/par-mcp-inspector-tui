@@ -1,5 +1,5 @@
 # Example configuration file for MCP Inspector
-# Copy this to ~/.config/mcp-inspector/servers.yaml and adjust as needed
+# Copy this to ~/.config/par-mcp-inspector-tui/servers.yaml and adjust as needed
 #
 # Configuration Options:
 # - toast_notifications (boolean, default: true): Controls whether to show toast popup

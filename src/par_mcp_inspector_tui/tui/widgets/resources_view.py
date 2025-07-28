@@ -24,16 +24,75 @@ if TYPE_CHECKING:
 class ResourceItem(ListItem):
     """Individual resource item."""
 
-    def __init__(self, resource: Resource) -> None:
+    def __init__(self, resource: Resource, mcp_service: MCPService) -> None:
         """Initialize resource item."""
         super().__init__()
         self.resource = resource
+        self.mcp_service = mcp_service
+        self.text_preview: str | None = None
 
     def compose(self) -> ComposeResult:
         """Create resource item display."""
         yield Label(self.resource.name, classes="resource-name")
         if self.resource.description:
             yield Label(self.resource.description, classes="resource-description")
+
+        # Show text preview if available
+        if self.text_preview:
+            yield Label(f"Preview: {self.text_preview}", classes="resource-preview")
+
+    async def load_text_preview(self) -> None:
+        """Load text preview for text-based resources."""
+        # Only try to load preview for text-based MIME types
+        if not self._is_text_resource():
+            return
+
+        try:
+            result = await self.mcp_service.read_resource(self.resource.uri)
+
+            if result and isinstance(result, list) and len(result) > 0:
+                item = result[0]
+
+                # Check if it has text content (not blob/binary)
+                if hasattr(item, "text") and not hasattr(item, "blob"):
+                    text_content = getattr(item, "text", "")
+                    if text_content:
+                        # Truncate to 100 characters and clean up formatting
+                        preview = text_content.strip()[:100]
+                        if len(text_content) > 100:
+                            preview += "..."
+
+                        # Replace newlines and multiple spaces for cleaner display
+                        preview = " ".join(preview.split())
+                        self.text_preview = preview
+
+                        # Update display
+                        self.refresh()
+
+        except Exception:
+            # Silently fail for preview loading - don't disturb the UI
+            pass
+
+    def _is_text_resource(self) -> bool:
+        """Check if this resource is likely to contain text content."""
+        if not self.resource.mime_type:
+            return False
+
+        text_mime_types = [
+            "text/plain",
+            "text/markdown",
+            "text/html",
+            "text/css",
+            "text/javascript",
+            "text/csv",
+            "application/json",
+            "application/xml",
+            "text/xml",
+            "application/yaml",
+            "text/yaml",
+        ]
+
+        return any(self.resource.mime_type.startswith(mime) for mime in text_mime_types)
 
 
 class ResourcesView(Widget, can_focus_children=True):
@@ -106,7 +165,17 @@ class ResourcesView(Widget, can_focus_children=True):
                 resources_list.append(ListItem(Label("Connect to a server to view resources", classes="empty-message")))
         else:
             for resource in self.resources:
-                resources_list.append(ResourceItem(resource))
+                resource_item = ResourceItem(resource, self.mcp_service)
+                resources_list.append(resource_item)
+
+                # Load text preview for text resources
+                if resource_item._is_text_resource():
+                    self._load_preview_async(resource_item)
+
+    @work
+    async def _load_preview_async(self, resource_item: ResourceItem) -> None:
+        """Load text preview asynchronously."""
+        await resource_item.load_text_preview()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle resource selection."""
@@ -247,10 +316,7 @@ class ResourcesView(Widget, can_focus_children=True):
 • File Location: {file_path}
 
 To open this file with your default application:
-🔥 Press Ctrl+O for quick open
-💻 Copy the file path above and open it manually
-⌨️  Run: open "{file_path}" (macOS) / start "{file_path}" (Windows) / xdg-open "{file_path}" (Linux)
-📁 Navigate to the file location in your file manager
+🚀 Press Ctrl+O for quick open
 
 The file has been saved and is ready to view."""
 

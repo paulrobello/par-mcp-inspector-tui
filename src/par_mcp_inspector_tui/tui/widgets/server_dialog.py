@@ -1,7 +1,8 @@
 """Server configuration dialog widget."""
 
+import json
 import uuid
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
@@ -119,13 +120,19 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
                     value=self.server.toast_notifications if self.server else True,
                 )
 
+            # Copy buttons (only show in edit mode when server exists)
+            if self.mode == "edit" and self.server:
+                with Horizontal(id="copy-button-container", classes="copy-buttons"):
+                    yield Button("Copy for Claude Desktop", id="copy-desktop-button", variant="primary")
+                    yield Button("Copy for Claude Code", id="copy-code-button", variant="primary")
+
             # Action buttons
             with Horizontal(id="button-container"):
                 yield Button("Cancel", id="cancel-button", variant="default")
                 yield Button(
                     "Save" if self.mode == "edit" else "Add",
                     id="save-button",
-                    variant="primary",
+                    variant="success",
                 )
 
     def on_mount(self) -> None:
@@ -316,6 +323,10 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
             self.action_cancel()
         elif event.button.id == "save-button":
             self._save_server()
+        elif event.button.id == "copy-desktop-button":
+            self._copy_for_claude_desktop()
+        elif event.button.id == "copy-code-button":
+            self._copy_for_claude_code()
 
     def _save_server(self) -> None:
         """Save server configuration."""
@@ -338,3 +349,102 @@ class ServerConfigDialog(ModalScreen[MCPServer | None]):
     def action_cancel(self) -> None:
         """Cancel dialog."""
         self.dismiss(None)
+
+    def _copy_for_claude_desktop(self) -> None:
+        """Copy server config in Claude Desktop format to clipboard."""
+        if not self.server:
+            return
+
+        try:
+            # Create the current server config from form
+            current_server = self._create_server_from_form()
+
+            # Format for Claude Desktop config.json
+            desktop_config = {current_server.name: self._server_to_desktop_config(current_server)}
+
+            config_text = json.dumps(desktop_config, indent=2)
+
+            # Copy to clipboard
+            import pyperclip
+
+            pyperclip.copy(config_text)
+
+            self.app.notify_success("Server config copied to clipboard for Claude Desktop")
+
+        except Exception as e:
+            self.app.notify_error(f"Failed to copy config: {e}")
+
+    def _copy_for_claude_code(self) -> None:
+        """Copy server config in Claude Code MCP add format to clipboard."""
+        if not self.server:
+            return
+
+        try:
+            # Create the current server config from form
+            current_server = self._create_server_from_form()
+
+            # Format for Claude Code mcp add command: "claude-code mcp add <name> -- <command> [args...]"
+            command_parts = ["claude-code", "mcp", "add", current_server.name, "--"]
+
+            if current_server.transport == TransportType.STDIO:
+                command_parts.append(current_server.command or "")
+
+                # Add arguments
+                if current_server.args:
+                    command_parts.extend(current_server.args)
+
+            elif current_server.transport == TransportType.TCP:
+                # For TCP transport, we need to represent it as a command that would start a TCP server
+                # This is a placeholder as TCP servers typically need custom setup
+                command_parts.extend(
+                    [
+                        "# TCP transport not directly supported in claude-code mcp add",
+                        f"# Host: {current_server.host or 'localhost'}",
+                        f"# Port: {current_server.port or 3333}",
+                    ]
+                )
+
+            elif current_server.transport == TransportType.HTTP:
+                # For HTTP transport, we need to represent it as a command that would start an HTTP server
+                # This is a placeholder as HTTP servers typically need custom setup
+                command_parts.extend(
+                    [
+                        "# HTTP transport not directly supported in claude-code mcp add",
+                        f"# URL: {current_server.url or ''}",
+                    ]
+                )
+
+            command_text = " ".join(command_parts)
+
+            # Copy to clipboard
+            import pyperclip
+
+            pyperclip.copy(command_text)
+
+            self.app.notify_success("MCP add command copied to clipboard for Claude Code")
+
+        except Exception as e:
+            self.app.notify_error(f"Failed to copy command: {e}")
+
+    def _server_to_desktop_config(self, server: MCPServer) -> dict[str, Any]:
+        """Convert MCPServer to Claude Desktop config format."""
+        if server.transport == TransportType.STDIO:
+            config: dict[str, Any] = {
+                "command": server.command or "",
+            }
+
+            if server.args:
+                config["args"] = server.args
+
+            if server.env:
+                config["env"] = server.env
+
+            return config
+
+        elif server.transport == TransportType.TCP:
+            return {"transport": {"type": "tcp", "host": server.host or "localhost", "port": server.port or 3333}}
+
+        elif server.transport == TransportType.HTTP:
+            return {"transport": {"type": "http", "url": server.url or ""}}
+
+        return {}

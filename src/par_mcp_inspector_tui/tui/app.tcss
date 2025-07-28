@@ -86,6 +86,9 @@ ResponseItem:focus > Static {
     border: solid $accent;
 }
 
+ResponseItem:focus > .response-item-container {
+    border: solid $accent;
+}
 .response-item-content {
     width: 100%;
     height: auto;
@@ -93,6 +96,81 @@ ResponseItem:focus > Static {
     padding: 1;
     margin-bottom: 1;
 }
+
+.response-item-container,.response-item-content {
+    width: 100%;
+    height: auto;
+    border: solid $primary;
+    padding: 1;
+    margin-bottom: 1;
+    background: $panel;
+
+}
+
+.response-item-border-title {
+    width: 100%;
+    text-style: bold;
+    color: $primary;
+    margin-bottom: 1;
+    background: $surface;
+    padding: 0 1;
+}
+
+.file-location-line {
+    width: 100%;
+    height: 3;
+    align: left middle;
+    margin-bottom: 1;
+}
+
+.file-location-label {
+    width: auto;
+    margin-bottom: 0;
+    margin-right: 0;
+}
+
+.file-location-path {
+    width: 1fr;
+    margin-bottom: 0;
+    margin-left: 0;
+}
+
+.response-content-text {
+    width: 100%;
+    height: auto;
+}
+
+.icon-button-inline {
+    width: 3;
+    min-width: 3;
+    height: 1;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: $background;
+
+    &:focus {
+        text-style: bold;
+    }
+}
+
+.icon-button-inline:hover {
+    width: 3 !important;
+    min-width: 3 !important;
+    background: transparent !important;
+    color: $background !important;
+}
+
+.icon-button-inline:focus {
+    width: 3 !important;
+    min-width: 3 !important;
+    background: transparent !important;
+    color: $background !important;
+}
+
+
+
 
 /* Server List Widget */
 .server-list {
@@ -377,6 +455,17 @@ Button {
     margin-top: 0;
 }
 
+#copy-button-container {
+    width: 100%;
+    height: 3;
+    align: center middle;
+    margin: 1;
+}
+
+#copy-button-container Button {
+    margin-left: 1;
+}
+
 #button-container {
     width: 100%;
     height: 3;
@@ -422,6 +511,28 @@ RadioSet > Button {
     color: $text;
 }
 
+/* Search Container */
+.search-container {
+    height: 3;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+.search-label {
+    width: auto;
+    margin-right: 1;
+    margin-bottom: 0;
+    color: $text-muted;
+    text-style: bold;
+    height: 3;
+    padding-top: 1;
+}
+
+.search-input {
+    width: 1fr;
+    margin-bottom: 0;
+}
+
 /* Tool/Resource/Prompt Item Styling */
 .tool-name, .resource-name, .prompt-name {
     text-style: bold;
@@ -433,6 +544,16 @@ RadioSet > Button {
     margin-bottom: 1;
     width: 100%;
     text-wrap: wrap;
+}
+
+.resource-preview {
+    color: $text-muted;
+    text-style: italic;
+    margin-bottom: 1;
+    width: 100%;
+    text-wrap: wrap;
+    background: $surface;
+    padding: 0 1;
 }
 
 .tool-params, .resource-params, .prompt-params {
@@ -513,4 +634,121 @@ PromptItem {
 #confirmation-buttons Button {
     margin-left: 1;
     margin-right: 1;
+}
+
+/* Raw Interactions Tab */
+.interaction-item {
+    height: auto;
+    margin-bottom: 1;
+    padding: 1;
+    border-left: thick $primary;
+    background: $surface;
+}
+
+.interaction-item:hover {
+    background: $primary 10%;
+    border-left: thick $primary-lighten-2;
+}
+
+.interaction-item:focus {
+    background: $primary 20%;
+    border: solid $primary;
+}
+
+.interaction-item.sent {
+    border-left: thick $success;
+    background: $success 5%;
+}
+
+.interaction-item.sent:hover {
+    background: $success 15%;
+    border-left: thick $success-lighten-1;
+}
+
+.interaction-item.sent:focus {
+    background: $success 25%;
+    border: solid $success;
+}
+
+.interaction-item.received {
+    border-left: thick $accent;
+    background: $accent 5%;
+}
+
+.interaction-item.received:hover {
+    background: $accent 15%;
+    border-left: thick $accent-lighten-1;
+}
+
+.interaction-item.received:focus {
+    background: $accent 25%;
+    border: solid $accent;
+}
+
+.interaction-time {
+    text-style: bold;
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+.interaction-message {
+    color: $text;
+    background: $background;
+    padding: 1;
+    border: solid $surface;
+    overflow-x: auto;
+}
+
+/* Raw Interactions List */
+#interactions-list {
+    height: 1fr;
+    overflow-y: auto;
+}
+
+/* Panel header for raw interactions */
+.panel-header {
+    height: auto;
+    align: left middle;
+    margin-bottom: 1;
+}
+
+/* Search header for raw interactions */
+.search-header {
+    height: auto;
+    margin-bottom: 1;
+}
+
+/* Search input styling */
+.search-input {
+    width: 1fr;
+    height: 3;
+}
+
+/* Panel title styling for raw interactions */
+.panel-title {
+    text-style: bold;
+    color: $primary;
+    padding: 0 1;
+    width: 1fr;
+}
+
+/* Clear button styling */
+.clear-button {
+    min-width: 8;
+    height: 3;
+    background: $error;
+    color: $text;
+    margin-left: 1;
+}
+
+.clear-button:hover {
+    background: $error 80%;
+}
+
+/* Empty message styling */
+.empty-message {
+    text-align: center;
+    color: $text-muted;
+    text-style: italic;
+    padding: 2;
 }

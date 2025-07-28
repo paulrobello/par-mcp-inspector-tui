@@ -970,13 +970,14 @@ wheels = [
 
 [[package]]
 name = "par-mcp-inspector-tui"
-version = "0.4.0"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
     { name = "filetype" },
     { name = "pydantic" },
     { name = "pydantic-core" },
+    { name = "pyperclip" },
     { name = "python-dotenv" },
     { name = "rich" },
     { name = "textual", extra = ["syntax"] },
@@ -1002,6 +1003,7 @@ requires-dist = [
     { name = "filetype", specifier = ">=1.2.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pydantic-core", specifier = ">=2.33.2" },
+    { name = "pyperclip", specifier = ">=1.9.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "rich", specifier = ">=14.0.0" },
     { name = "textual", extras = ["syntax"], specifier = ">=4.0.0" },

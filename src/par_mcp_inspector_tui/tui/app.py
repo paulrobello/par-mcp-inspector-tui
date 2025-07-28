@@ -15,6 +15,7 @@ from ..services import MCPService, ServerManager
 from .widgets.connection_status import ConnectionStatus
 from .widgets.notification_panel import NotificationPanel
 from .widgets.prompts_view import PromptsView
+from .widgets.raw_interactions_view import RawInteractionsView
 from .widgets.resources_view import ResourcesView
 from .widgets.response_viewer import ResponseViewer
 from .widgets.roots_view import RootsView
@@ -49,9 +50,10 @@ class MCPInspectorApp(App[None]):
             debug: Whether to enable debug logging to file
         """
         super().__init__()
-        self.mcp_service = MCPService()
+        self.mcp_service = MCPService(debug=debug)
         self.server_manager = ServerManager()
         self.notification_panel = NotificationPanel()
+        self.raw_interactions_view = RawInteractionsView(self.mcp_service)
         self.debug_enabled = debug
         self._shutting_down = False
 
@@ -128,6 +130,9 @@ class MCPInspectorApp(App[None]):
                 with TabPane("Roots", id="roots-tab"):
                     yield RootsView(self.mcp_service, id="roots-view")
 
+                with TabPane("Raw Interactions", id="raw-interactions-tab"):
+                    yield self.raw_interactions_view
+
                 with TabPane("Notifications", id="notifications-tab"):
                     yield self.notification_panel
 
@@ -143,6 +148,10 @@ class MCPInspectorApp(App[None]):
         # Set up notification forwarding
         self.mcp_service.on_state_change(self._on_connection_state_change)
         self.mcp_service.on_server_notification(self._on_server_notification)
+        self.mcp_service.on_interaction(self._on_interaction)
+
+        if self.debug_enabled:
+            self.debug_log("Registered interaction callback in on_mount")
 
     async def on_unmount(self) -> None:
         """Clean up when app is shutting down."""
@@ -161,6 +170,11 @@ class MCPInspectorApp(App[None]):
             except Exception as e:
                 if self.debug:
                     self.debug_log(f"Error during shutdown disconnect: {e}")
+
+        # Small delay to allow async cleanup to complete
+        import asyncio
+
+        await asyncio.sleep(0.1)
 
     def _on_connection_state_change(self, state: ServerState) -> None:
         """Handle connection state changes."""
@@ -215,6 +229,12 @@ class MCPInspectorApp(App[None]):
         except Exception:
             pass  # Widget might not be mounted yet
 
+        try:
+            # Clear raw interactions view
+            self.raw_interactions_view.clear_data()
+        except Exception:
+            pass  # Widget might not be mounted yet
+
     def _on_server_notification(self, server_notification: ServerNotification) -> None:
         """Handle server notification callback from MCP service.
 
@@ -238,6 +258,33 @@ class MCPInspectorApp(App[None]):
 
         # Trigger auto-refresh for list_changed notifications
         self._handle_list_changed_notification(server_notification)
+
+    def _on_interaction(self, message: str, interaction_type: str, timestamp: datetime) -> None:
+        """Handle raw MCP interaction callback from MCP service.
+
+        Args:
+            message: Raw JSON message
+            interaction_type: Whether this was sent or received
+            timestamp: When the interaction occurred
+        """
+        # Skip callbacks during shutdown to avoid UI update errors
+        if self._shutting_down:
+            return
+
+        if self.debug_enabled:
+            self.debug_log(f"App _on_interaction: {interaction_type} - {message[:50]}...")
+
+        # Add to raw interactions view
+        try:
+            from typing import cast
+
+            from .widgets.raw_interactions_view import InteractionType
+
+            interaction_type_typed = cast(InteractionType, interaction_type)
+            self.raw_interactions_view.add_interaction(message, interaction_type_typed, timestamp)
+        except Exception as e:
+            if self.debug_enabled:
+                self.debug_log(f"Error adding interaction: {e}", "error")
 
     def _should_show_notification_toast(self) -> bool:
         """Check if notification toasts should be shown.
@@ -436,6 +483,11 @@ class MCPInspectorApp(App[None]):
                 for callback in old_service._notification_callbacks:
                     self.mcp_service.on_server_notification(callback)
 
+            # Transfer interaction callbacks from old service
+            if hasattr(old_service, "_interaction_callbacks"):
+                for callback in old_service._interaction_callbacks:
+                    self.mcp_service.on_interaction(callback)
+
             # Update all widgets with new service
             self._update_widgets_with_service()
 
@@ -466,6 +518,9 @@ class MCPInspectorApp(App[None]):
             roots_view = self.query_one("#roots-view", RootsView)
             roots_view.mcp_service = self.mcp_service
             self.call_later(roots_view.refresh)
+
+            # Update raw interactions view
+            self.raw_interactions_view.mcp_service = self.mcp_service
 
         except Exception:
             # Widgets might not be mounted yet, that's OK
