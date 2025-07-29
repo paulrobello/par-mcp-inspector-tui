@@ -178,6 +178,12 @@ def connect(
         bool,
         typer.Option("--raw-interactions", help="Dump raw MCP protocol interactions"),
     ] = False,
+    debug_dump: Annotated[
+        bool,
+        typer.Option(
+            "--debug-dump", "-D", help="Perform debug dump like the debug command (lists tools, resources, prompts)"
+        ),
+    ] = False,
     name: Annotated[
         str,
         typer.Option("--name", "-n", help="Server name for display"),
@@ -195,7 +201,7 @@ def connect(
         log_file = log_dir / f"mcp_inspector_debug_{timestamp}.log"
     setup_logging(debug=debug, log_file=log_file)
 
-    asyncio.run(_connect_arbitrary_server(command, args, env, verbose, debug, raw_interactions, name))
+    asyncio.run(_connect_arbitrary_server(command, args, env, verbose, debug, raw_interactions, debug_dump, name))
 
 
 @app.command()
@@ -250,6 +256,12 @@ def connect_tcp(
         bool,
         typer.Option("--raw-interactions", help="Dump raw MCP protocol interactions"),
     ] = False,
+    debug_dump: Annotated[
+        bool,
+        typer.Option(
+            "--debug-dump", "-D", help="Perform debug dump like the debug command (lists tools, resources, prompts)"
+        ),
+    ] = False,
     name: Annotated[
         str,
         typer.Option("--name", "-n", help="Server name for display"),
@@ -267,7 +279,7 @@ def connect_tcp(
         log_file = log_dir / f"mcp_inspector_debug_{timestamp}.log"
     setup_logging(debug=debug, log_file=log_file)
 
-    asyncio.run(_connect_arbitrary_tcp_server(host, port, verbose, debug, raw_interactions, name))
+    asyncio.run(_connect_arbitrary_tcp_server(host, port, verbose, debug, raw_interactions, debug_dump, name))
 
 
 @app.command()
@@ -284,6 +296,12 @@ def connect_http(
     raw_interactions: Annotated[
         bool,
         typer.Option("--raw-interactions", help="Dump raw MCP protocol interactions"),
+    ] = False,
+    debug_dump: Annotated[
+        bool,
+        typer.Option(
+            "--debug-dump", "-D", help="Perform debug dump like the debug command (lists tools, resources, prompts)"
+        ),
     ] = False,
     name: Annotated[
         str,
@@ -302,7 +320,7 @@ def connect_http(
         log_file = log_dir / f"mcp_inspector_debug_{timestamp}.log"
     setup_logging(debug=debug, log_file=log_file)
 
-    asyncio.run(_connect_arbitrary_http_server(url, verbose, debug, raw_interactions, name))
+    asyncio.run(_connect_arbitrary_http_server(url, verbose, debug, raw_interactions, debug_dump, name))
 
 
 @app.command()
@@ -679,7 +697,14 @@ async def _remove_root(server_id: str, path: str) -> None:
 
 
 async def _connect_arbitrary_server(
-    command: str, args: list[str], env: list[str], verbose: bool, debug: bool, raw_interactions: bool, name: str
+    command: str,
+    args: list[str],
+    env: list[str],
+    verbose: bool,
+    debug: bool,
+    raw_interactions: bool,
+    debug_dump: bool,
+    name: str,
 ) -> None:
     """Connect to an arbitrary STDIO MCP server."""
     try:
@@ -706,8 +731,11 @@ async def _connect_arbitrary_server(
             id="temp-server", name=name, transport=TransportType.STDIO, command=command, args=args, env=env_dict
         )
 
-        # Run the same debug logic as the configured server debug
-        await _run_server_debug(server, verbose, debug, raw_interactions)
+        # If debug_dump is enabled, run the full debug logic, otherwise just connect
+        if debug_dump:
+            await _run_server_debug(server, verbose, debug, raw_interactions)
+        else:
+            await _run_simple_connection(server, verbose, debug, raw_interactions)
 
     except Exception as e:
         console.print(f"[bold red]Unexpected error:[/bold red] {e}")
@@ -719,7 +747,7 @@ async def _connect_arbitrary_server(
 
 
 async def _connect_arbitrary_tcp_server(
-    host: str, port: int, verbose: bool, debug: bool, raw_interactions: bool, name: str
+    host: str, port: int, verbose: bool, debug: bool, raw_interactions: bool, debug_dump: bool, name: str
 ) -> None:
     """Connect to an arbitrary TCP MCP server."""
     try:
@@ -729,8 +757,11 @@ async def _connect_arbitrary_tcp_server(
         # Create temporary server configuration
         server = MCPServer(id="temp-tcp-server", name=name, transport=TransportType.TCP, host=host, port=port)
 
-        # Run the same debug logic as the configured server debug
-        await _run_server_debug(server, verbose, debug, raw_interactions)
+        # If debug_dump is enabled, run the full debug logic, otherwise just connect
+        if debug_dump:
+            await _run_server_debug(server, verbose, debug, raw_interactions)
+        else:
+            await _run_simple_connection(server, verbose, debug, raw_interactions)
 
     except Exception as e:
         console.print(f"[bold red]Unexpected error:[/bold red] {e}")
@@ -742,7 +773,7 @@ async def _connect_arbitrary_tcp_server(
 
 
 async def _connect_arbitrary_http_server(
-    url: str, verbose: bool, debug: bool, raw_interactions: bool, name: str
+    url: str, verbose: bool, debug: bool, raw_interactions: bool, debug_dump: bool, name: str
 ) -> None:
     """Connect to an arbitrary HTTP MCP server."""
     try:
@@ -752,8 +783,11 @@ async def _connect_arbitrary_http_server(
         # Create temporary server configuration
         server = MCPServer(id="temp-http-server", name=name, transport=TransportType.HTTP, url=url)
 
-        # Run the same debug logic as the configured server debug
-        await _run_server_debug(server, verbose, debug, raw_interactions)
+        # If debug_dump is enabled, run the full debug logic, otherwise just connect
+        if debug_dump:
+            await _run_server_debug(server, verbose, debug, raw_interactions)
+        else:
+            await _run_simple_connection(server, verbose, debug, raw_interactions)
 
     except Exception as e:
         console.print(f"[bold red]Unexpected error:[/bold red] {e}")
@@ -762,6 +796,63 @@ async def _connect_arbitrary_http_server(
 
             traceback.print_exc()
         raise typer.Exit(code=1)
+
+
+async def _run_simple_connection(server: MCPServer, verbose: bool, debug: bool, raw_interactions: bool) -> None:
+    """Run simple server connection logic (without debug dump)."""
+    # For filesystem servers, provide roots based on command args
+    roots = []
+    if server.transport == TransportType.STDIO and server.args:
+        # For filesystem server, use the directory arguments as roots
+        for arg in server.args:
+            # Skip npm package names and flags, look for actual paths
+            if (
+                not arg.startswith("-")
+                and not arg.startswith("@")
+                and ("/" in arg or arg in [".", "~"])
+                and not arg.endswith(".js")
+                and not arg.endswith(".ts")
+            ):
+                roots.append(arg)
+
+    if debug and roots:
+        console.print(f"[dim]Providing roots: {roots}[/dim]")
+
+    if raw_interactions:
+        console.print("[bold yellow]Raw MCP interactions will be dumped to console[/bold yellow]")
+
+    # Create service and connect
+    service = MCPService(debug=debug or raw_interactions, roots=roots)
+
+    console.print("\n[bold yellow]Connecting...[/bold yellow]")
+    try:
+        await service.connect(server)
+        console.print("[bold green]✓ Connected successfully[/bold green]")
+
+        # Give server time to process initialization
+        if debug:
+            console.print("[dim]Waiting for server to complete initialization and potential roots request...[/dim]")
+        await asyncio.sleep(5.0)
+
+        # Get basic server info
+        server_info = service.server_info
+        if server_info:
+            console.print(
+                f"\n[bold blue]Connected to:[/bold blue] {server_info.name or 'Unknown'} v{server_info.version}"
+            )
+            if verbose:
+                console.print(f"Protocol Version: {server_info.protocol_version}")
+
+        console.print("[bold green]Connection established and ready for interaction[/bold green]")
+
+    except Exception as e:
+        console.print(f"[bold red]✗ Connection failed:[/bold red] {e}")
+        return
+
+    # Disconnect
+    console.print("\n[bold yellow]Disconnecting...[/bold yellow]")
+    await service.disconnect()
+    console.print("[bold green]✓ Disconnected[/bold green]")
 
 
 async def _run_server_debug(server: MCPServer, verbose: bool, debug: bool, raw_interactions: bool) -> None:

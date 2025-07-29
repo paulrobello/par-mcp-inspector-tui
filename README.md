@@ -5,7 +5,7 @@
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-0.8.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.9.0-green.svg)
 ![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
@@ -22,9 +22,27 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 
 *The Raw Interactions tab displaying real-time MCP JSON-RPC protocol messages with syntax highlighting, showing both sent (green) and received (blue) messages with timestamps and comprehensive protocol monitoring capabilities.*
 
-## 🆕 What's New in v0.7.0
+## 🆕 What's New in v0.9.0
 
-**🔧 Bug Fix**: Fixed scroll bar for long tool parameter lists in the TUI interface.
+**🔍 Enhanced Connect Commands**: Added `--debug-dump` flag to all connect commands for comprehensive server debugging.
+
+- **New `--debug-dump` Flag**: Available for `connect`, `connect-tcp`, and `connect-http` commands
+- **Full Debug Analysis**: Performs complete server inspection like the `debug` command (lists tools, resources, prompts)
+- **Flexible Testing**: Connect to any MCP server with or without full debug output
+- **Convenient Short Flag**: Use `-D` for quick debug dumps
+- **Consistent Interface**: Same debug output format across all connect commands
+
+Examples:
+```shell
+# Connect with full debug dump
+pmit connect npx -a "-y" -a "@modelcontextprotocol/server-filesystem" -a "/tmp" --debug-dump
+
+# Quick debug dump with short flag
+pmit connect-tcp localhost 3333 -D
+
+# HTTP server with debug analysis
+pmit connect-http https://api.example.com/mcp --debug-dump --verbose
+```
 
 ## What's New in v0.6.0
 
@@ -175,8 +193,14 @@ pmit debug <server-id> --verbose
 # Connect to arbitrary STDIO server
 pmit connect npx --arg "-y" --arg "@modelcontextprotocol/server-filesystem" --arg "/tmp"
 
+# Connect with debug dump for full server analysis
+pmit connect npx --arg "-y" --arg "@modelcontextprotocol/server-filesystem" --arg "/tmp" --debug-dump
+
 # Connect to arbitrary TCP server
 pmit connect-tcp localhost 3333
+
+# Connect to TCP server with debug dump
+pmit connect-tcp localhost 3333 --debug-dump
 
 # Download resources from servers
 pmit download-resource <server-id> <resource-name>
@@ -357,12 +381,14 @@ uv run pmit connect <command> [OPTIONS]
 - `--env -e`: Environment variables in KEY=VALUE format (can be specified multiple times)
 - `--verbose -v`: Verbose output with raw JSON
 - `--debug`: Enable debug logging of MCP messages
+- `--debug-dump -D`: Perform debug dump like the debug command (lists tools, resources, prompts)
 - `--name -n`: Server name for display (default: Ad-hoc Server)
 
-Connect to an arbitrary STDIO server without adding it to configuration. Uses the same enhanced debug output as the `debug` command, including:
-- **Color-coded resource display** with download guidance
+Connect to an arbitrary STDIO server without adding it to configuration. With `--debug-dump`, uses the same enhanced debug output as the `debug` command, including:
+- **Color-coded resource display** with download guidance  
 - **Smart messaging**: Informs users to add server to configuration before downloading resources
 - **Full MCP testing**: Resources, tools, and prompts endpoints
+- **Flexible Output**: Basic connection info without `--debug-dump`, full analysis with it
 
 **Examples:**
 ```shell
@@ -374,6 +400,9 @@ pmit connect python -a "server.py" -e "DEBUG=1" -e "PORT=8080" -n "My Server"
 
 # Verbose output with debug logging
 pmit connect node -a "server.js" --verbose --debug
+
+# With debug dump for full server analysis
+pmit connect node -a "server.js" --debug-dump --verbose
 
 # From source
 uv run pmit connect npx -a "-y" -a "@modelcontextprotocol/server-filesystem" -a "/tmp"
@@ -395,12 +424,14 @@ uv run pmit connect-tcp [HOST] [PORT] [OPTIONS]
 **Options:**
 - `--verbose -v`: Verbose output with raw JSON
 - `--debug`: Enable debug logging of MCP messages
+- `--debug-dump -D`: Perform debug dump like the debug command (lists tools, resources, prompts)
 - `--name -n`: Server name for display (default: TCP Server)
 
-Connect to an arbitrary TCP server without adding it to configuration. Uses the same enhanced debug output as other debug commands, including:
+Connect to an arbitrary TCP server without adding it to configuration. With `--debug-dump`, uses the same enhanced debug output as other debug commands, including:
 - **Enhanced resource listing** with color-coded display
 - **Download guidance**: Instructions to add server to configuration first
 - **Complete testing**: All MCP endpoints (resources, tools, prompts)
+- **Flexible Output**: Basic connection info without `--debug-dump`, full analysis with it
 
 **Examples:**
 ```shell
@@ -409,6 +440,9 @@ pmit connect-tcp
 
 # Custom host and port with verbose and debug output
 pmit connect-tcp example.com 8080 -n "Remote Server" --verbose --debug
+
+# With debug dump for comprehensive analysis
+pmit connect-tcp example.com 8080 -n "Remote Server" --debug-dump
 
 # From source
 uv run pmit connect-tcp
@@ -1050,6 +1084,17 @@ Use 'download-resource my-server-id "<resource-name>"' to download any resource
 Use `--verbose` flag to see raw JSON responses and detailed debugging information.
 
 ## Changelog
+
+### v0.9.0 - Enhanced Connect Commands with Debug Dump
+- **🔍 New `--debug-dump` Flag**: Added comprehensive debug analysis to all connect commands
+  - Available for `connect`, `connect-tcp`, and `connect-http` commands
+  - Performs same complete server inspection as `debug` command
+  - Lists tools, resources, and prompts with enhanced color-coded display
+  - Provides flexible testing options (basic connection vs full debug analysis)
+  - Short flag `-D` available for convenience
+  - Consistent debug output format across all connect commands
+- **📖 Documentation Updates**: Updated README and CLAUDE.md with new command examples
+- **🧪 Enhanced Testing**: Better support for arbitrary server testing and analysis
 
 ### v0.8.0 - Fixed Claude Code Command Format
 - **🔧 Bug Fix**: Fixed server copy commands for Claude Code to use correct `claude` command instead of `claude-code`

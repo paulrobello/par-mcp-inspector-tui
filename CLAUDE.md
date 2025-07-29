@@ -16,6 +16,9 @@ A TUI application for inspecting and interacting with Model Context Protocol (MC
 ### Testing Commands
 - `uv run pmit debug <server-id> --verbose` - Debug server connections
 - `uv run pmit connect <command> --verbose` - Test arbitrary STDIO server
+- `uv run pmit connect <command> --debug-dump` - Test arbitrary STDIO server with debug dump
+- `uv run pmit connect-tcp <host> <port> --debug-dump` - Test arbitrary TCP server with debug dump
+- `uv run pmit connect-http <url> --debug-dump` - Test arbitrary HTTP server with debug dump
 - `uv run pmit servers` - List configured servers
 
 ### Clipboard Commands
