@@ -603,12 +603,56 @@ class StdioMCPClient(MCPClient):
 
                 # Log the response (handle complex objects safely)
                 import json
+                from typing import Any
+                
+                def serialize_result(obj: Any) -> Any:
+                    """Serialize Pydantic models and other complex objects for JSON."""
+                    # Handle FastMCP CallToolResult by class name
+                    obj_class_name = obj.__class__.__name__
+                    if obj_class_name == 'CallToolResult':
+                        # This is a CallToolResult - extract its attributes
+                        result_dict = {}
+                        try:
+                            # Get all attributes we care about
+                            for attr in ['content', 'structuredContent', 'isError']:
+                                if hasattr(obj, attr):
+                                    value = getattr(obj, attr)
+                                    if value is not None:
+                                        result_dict[attr] = serialize_result(value)
+                            return result_dict
+                        except Exception as e:
+                            return f"[CallToolResult serialization error: {e}]"
+                    elif hasattr(obj, 'model_dump'):
+                        # Pydantic model
+                        try:
+                            return obj.model_dump()
+                        except Exception as e:
+                            return f"[Pydantic model_dump error: {e}]"
+                    elif isinstance(obj, (list, tuple)):
+                        # List/tuple of objects
+                        return [serialize_result(item) for item in obj]
+                    elif isinstance(obj, dict):
+                        # Dictionary
+                        return {k: serialize_result(v) for k, v in obj.items()}
+                    else:
+                        # Primitive type or already serializable
+                        try:
+                            # Test if it's JSON serializable
+                            json.dumps(obj)
+                            return obj
+                        except (TypeError, ValueError):
+                            # If not serializable, convert to string
+                            return str(obj)
 
                 try:
-                    self._notify_interaction(json.dumps({"result": result}), "received")
-                except (TypeError, AttributeError):
-                    # If serialization fails, log a simple message
-                    self._notify_interaction(json.dumps({"result": "[Tool execution completed]"}), "received")
+                    serialized_result = serialize_result(result)
+                    self._notify_interaction(json.dumps({"result": serialized_result}), "received")
+                except (TypeError, AttributeError) as e:
+                    # If serialization still fails, include error info
+                    self._notify_interaction(json.dumps({
+                        "result": f"[Serialization failed: {str(e)}]",
+                        "result_type": str(type(result))
+                    }), "received")
 
                 return result
         except Exception as e:
