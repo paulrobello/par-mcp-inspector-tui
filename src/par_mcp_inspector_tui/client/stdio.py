@@ -14,6 +14,71 @@ from .base import MCPClient, MCPClientError
 logger = logging.getLogger(__name__)
 
 
+def _serialize_mcp_object(obj: Any) -> Any:
+    """Unified serialization function for all FastMCP objects and responses.
+    
+    Handles CallToolResult, ResourceContents, Pydantic models, and complex objects
+    for JSON serialization in MCP interactions.
+    """
+    import json
+    
+    # Handle lists first (common for resource responses)
+    if isinstance(obj, list):
+        return [_serialize_mcp_object(item) for item in obj]
+    
+    # Handle FastMCP-specific objects by class name
+    obj_class_name = obj.__class__.__name__
+    
+    # Tool call results
+    if obj_class_name == 'CallToolResult':
+        result_dict = {}
+        try:
+            for attr in ['content', 'structuredContent', 'isError']:
+                if hasattr(obj, attr):
+                    value = getattr(obj, attr)
+                    if value is not None:
+                        result_dict[attr] = _serialize_mcp_object(value)
+            return result_dict
+        except Exception as e:
+            return f"[CallToolResult serialization error: {e}]"
+    
+    # Resource content objects
+    elif obj_class_name in ['TextResourceContents', 'BlobResourceContents', 'ResourceContents']:
+        result_dict = {}
+        try:
+            for attr in ['content', 'text', 'data', 'mimeType', 'mime_type', 'type']:
+                if hasattr(obj, attr):
+                    value = getattr(obj, attr)
+                    if value is not None:
+                        result_dict[attr] = _serialize_mcp_object(value)
+            return result_dict
+        except Exception as e:
+            return f"[{obj_class_name} serialization error: {e}]"
+    
+    # Pydantic models (common across all MCP objects)
+    elif hasattr(obj, 'model_dump'):
+        try:
+            return obj.model_dump()
+        except Exception as e:
+            return f"[Pydantic model_dump error: {e}]"
+    
+    # Collections
+    elif isinstance(obj, (list, tuple)):
+        return [_serialize_mcp_object(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: _serialize_mcp_object(v) for k, v in obj.items()}
+    
+    # Primitives and fallback
+    else:
+        try:
+            # Test if it's already JSON serializable
+            json.dumps(obj)
+            return obj
+        except (TypeError, ValueError):
+            # Convert to string as last resort
+            return str(obj)
+
+
 class NotificationBridge(MessageHandler):
     """Bridge FastMCP notifications to our notification system."""
 
@@ -249,31 +314,7 @@ class StdioMCPClient(MCPClient):
 
                 # Log the response (handle complex objects safely)
                 try:
-                    # Convert tools data to serializable format
-                    serializable_tools = []
-                    for tool in tools_data:
-                        if hasattr(tool, "model_dump"):
-                            # Pydantic model - use model_dump
-                            serializable_tools.append(tool.model_dump())
-                        elif hasattr(tool, "__dict__"):
-                            # Regular object - convert attributes
-                            tool_dict = {}
-                            for key, value in tool.__dict__.items():
-                                if hasattr(value, "model_dump"):
-                                    tool_dict[key] = value.model_dump()
-                                elif hasattr(value, "__dict__"):
-                                    tool_dict[key] = value.__dict__
-                                else:
-                                    tool_dict[key] = (
-                                        str(value)
-                                        if not isinstance(value, str | int | float | bool | type(None))
-                                        else value
-                                    )
-                            serializable_tools.append(tool_dict)
-                        else:
-                            # Already a dict or simple value
-                            serializable_tools.append(tool)
-
+                    serializable_tools = _serialize_mcp_object(tools_data)
                     self._notify_interaction(json.dumps({"result": {"tools": serializable_tools}}), "received")
                 except (TypeError, AttributeError) as e:
                     # If serialization still fails, log a more detailed message
@@ -366,31 +407,7 @@ class StdioMCPClient(MCPClient):
 
                 # Log the response (handle complex objects safely)
                 try:
-                    # Convert resources data to serializable format
-                    serializable_resources = []
-                    for resource in resources_data:
-                        if hasattr(resource, "model_dump"):
-                            # Pydantic model - use model_dump
-                            serializable_resources.append(resource.model_dump())
-                        elif hasattr(resource, "__dict__"):
-                            # Regular object - convert attributes
-                            resource_dict = {}
-                            for key, value in resource.__dict__.items():
-                                if hasattr(value, "model_dump"):
-                                    resource_dict[key] = value.model_dump()
-                                elif hasattr(value, "__dict__"):
-                                    resource_dict[key] = value.__dict__
-                                else:
-                                    resource_dict[key] = (
-                                        str(value)
-                                        if not isinstance(value, str | int | float | bool | type(None))
-                                        else value
-                                    )
-                            serializable_resources.append(resource_dict)
-                        else:
-                            # Already a dict or simple value
-                            serializable_resources.append(resource)
-
+                    serializable_resources = _serialize_mcp_object(resources_data)
                     self._notify_interaction(json.dumps({"result": {"resources": serializable_resources}}), "received")
                 except (TypeError, AttributeError) as e:
                     # If serialization still fails, log a more detailed message
@@ -445,8 +462,30 @@ class StdioMCPClient(MCPClient):
             raise MCPClientError("Not connected")
 
         try:
+            # Log the request
+            import json
+            
+            self._notify_interaction(json.dumps({"method": "resources/templates/list", "params": {}}), "sent")
+
             async with self._client:
                 templates_data = await self._client.list_resource_templates()
+
+                # Log the response (handle complex objects safely)
+                try:
+                    serializable_templates = _serialize_mcp_object(templates_data)
+                    self._notify_interaction(json.dumps({"result": {"resourceTemplates": serializable_templates}}), "received")
+                except (TypeError, AttributeError) as e:
+                    # If serialization fails, log a more detailed message
+                    self._notify_interaction(
+                        json.dumps(
+                            {
+                                "result": {
+                                    "resourceTemplates": f"[{len(templates_data)} templates returned - serialization error: {str(e)}]"
+                                }
+                            }
+                        ),
+                        "received",
+                    )
                 templates = []
                 for template_info in templates_data:
                     # FastMCP may return ResourceTemplate objects or dictionaries
@@ -478,6 +517,7 @@ class StdioMCPClient(MCPClient):
                 return []
             raise MCPClientError(f"Failed to list resource templates: {e}")
 
+
     async def list_prompts(self) -> list[Prompt]:
         """List available prompts."""
         if not self._client:
@@ -494,27 +534,7 @@ class StdioMCPClient(MCPClient):
 
                 # Log the response (handle complex objects safely)
                 try:
-                    # Convert prompts data to serializable format
-                    serializable_prompts = []
-                    for prompt in prompts_data:
-                        if hasattr(prompt, "model_dump"):
-                            # Pydantic model - use model_dump
-                            serializable_prompts.append(prompt.model_dump())
-                        elif hasattr(prompt, "__dict__"):
-                            # Regular object - convert attributes
-                            prompt_dict = {}
-                            for key, value in prompt.__dict__.items():
-                                if hasattr(value, "model_dump"):
-                                    prompt_dict[key] = value.model_dump()
-                                elif hasattr(value, "__dict__"):
-                                    prompt_dict[key] = value.__dict__
-                                else:
-                                    prompt_dict[key] = value
-                            serializable_prompts.append(prompt_dict)
-                        else:
-                            # Already a dict or simple value
-                            serializable_prompts.append(prompt)
-
+                    serializable_prompts = _serialize_mcp_object(prompts_data)
                     self._notify_interaction(json.dumps({"result": {"prompts": serializable_prompts}}), "received")
                 except (TypeError, AttributeError) as e:
                     # If serialization still fails, log a more detailed message
@@ -605,10 +625,14 @@ class StdioMCPClient(MCPClient):
                 import json
 
                 try:
-                    self._notify_interaction(json.dumps({"result": result}), "received")
-                except (TypeError, AttributeError):
-                    # If serialization fails, log a simple message
-                    self._notify_interaction(json.dumps({"result": "[Tool execution completed]"}), "received")
+                    serialized_result = _serialize_mcp_object(result)
+                    self._notify_interaction(json.dumps({"result": serialized_result}), "received")
+                except (TypeError, AttributeError) as e:
+                    # If serialization still fails, include error info
+                    self._notify_interaction(json.dumps({
+                        "result": f"[Serialization failed: {str(e)}]",
+                        "result_type": str(type(result))
+                    }), "received")
 
                 return result
         except Exception as e:
@@ -633,10 +657,14 @@ class StdioMCPClient(MCPClient):
                 import json
 
                 try:
-                    self._notify_interaction(json.dumps({"result": result}), "received")
-                except (TypeError, AttributeError):
-                    # If serialization fails, log a simple message
-                    self._notify_interaction(json.dumps({"result": "[Resource read completed]"}), "received")
+                    serialized_result = _serialize_mcp_object(result)
+                    self._notify_interaction(json.dumps({"result": serialized_result}), "received")
+                except (TypeError, AttributeError) as e:
+                    # If serialization still fails, include error info
+                    self._notify_interaction(json.dumps({
+                        "result": f"[Resource serialization failed: {str(e)}]",
+                        "result_type": str(type(result))
+                    }), "received")
 
                 return result
         except Exception as e:
@@ -661,10 +689,14 @@ class StdioMCPClient(MCPClient):
                 import json
 
                 try:
-                    self._notify_interaction(json.dumps({"result": result}), "received")
-                except (TypeError, AttributeError):
+                    serialized_result = _serialize_mcp_object(result)
+                    self._notify_interaction(json.dumps({"result": serialized_result}), "received")
+                except (TypeError, AttributeError) as e:
                     # If serialization fails, log a simple message
-                    self._notify_interaction(json.dumps({"result": "[Prompt retrieved]"}), "received")
+                    self._notify_interaction(json.dumps({
+                        "result": f"[Prompt serialization failed: {str(e)}]",
+                        "result_type": str(type(result))
+                    }), "received")
 
                 return result
         except Exception as e:
