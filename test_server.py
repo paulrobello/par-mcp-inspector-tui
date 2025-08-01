@@ -1,7 +1,42 @@
+"""
+MCP Test Server - Modular Resource Learning Platform
+
+This is our refactored test server that demonstrates MCP resources
+using a modular architecture. Each resource is organized in its own file
+for better maintainability and easier extension.
+
+Resources Available:
+- Resource #1: Static server info (server://info)
+- Resource #2: Dynamic user info (user://{user_id})  
+- Resource #3: File system with wildcards (files://{filepath*})
+
+Tools Available:
+- fibonacci: Generate Fibonacci sequences
+- add_numbers: Simple addition for testing
+"""
+
 from fastmcp import FastMCP
+from resources import register_all_resources
 
 # Create mcp server for testing
 mcp = FastMCP("mcp-test-server")
+
+# ============================================================================
+# RESOURCES - Loaded from modular resources/ directory
+# ============================================================================
+
+# Register all resources from the resources/ module
+# This includes:
+# - Resource #1: Static server info (server://info)
+# - Resource #2: Dynamic user info (user://{user_id})  
+# - Resource #3: File system with wildcards (files://{filepath*})
+registered_resources = register_all_resources(mcp)
+
+print(f"[INFO] MCP Test Server initialized with {len(registered_resources)} resources")
+
+# ============================================================================
+# TOOLS
+# ============================================================================
 
 @mcp.tool()
 def fibonacci(n: int) -> list[int]:
@@ -61,4 +96,7 @@ def add_numbers(a: int, b: int) -> int:
     return a + b
 
 if __name__ == "__main__":
+    print("[INFO] Starting MCP Test Server...")
+    print("[INFO] Resources loaded from modular architecture")
+    print("[INFO] Ready for MCP client connections")
     mcp.run()
