@@ -19,7 +19,7 @@ This document tracks our progressive learning journey with MCP resources, docume
 **Date:** 2024-12-28  
 **Type:** Static Resource  
 **URI Pattern:** `server://info`  
-**Goal:** Create the simplest possible resource to understand basic MCP resource mechanics  
+**Goal:** Create the simplest possible resource to understand basic MCP resource mechanics
 
 **Why this approach:**
 - Static data requires no parameters or complex logic
