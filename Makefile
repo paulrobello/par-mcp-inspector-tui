@@ -6,7 +6,7 @@ python := $(run) python
 pyright := $(run) pyright
 ruff  := $(run) ruff
 publish := $(run) uv publish
-build  := uv build
+build  := $(python) -m build
 
 
 #export UV_LINK_MODE=copy
@@ -116,12 +116,16 @@ pre-commit-update:
 ##############################################################################
 # Package/publish.
 .PHONY: package
-package: clean			# Package the library
-	$(build)
+package:			# Package the library (wheel only)
+	$(build) -w
 
 .PHONY: spackage
 spackage:			# Create a source package for the library
-	$(build) --sdist
+	$(build) -s
+
+.PHONY: package-all
+package-all: clean		# Package both wheel and source
+	$(build)
 
 .PHONY: test-publish
 test-publish: package		# Upload to testpypi

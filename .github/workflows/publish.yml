@@ -35,11 +35,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras --dev
+          uv sync --all-groups
 
       - name: Get version from __init__.py
         id: get_version
@@ -62,14 +62,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dist
-          key: ${{ runner.os }}-3.11-x64-${{ hashFiles('**/pyproject.toml') }}-${{ github.sha }}
+          key: ${{ runner.os }}-3.12-x64-${{ hashFiles('**/pyproject.toml') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-3.11-x64-${{ hashFiles('**/pyproject.toml') }}-
-            ${{ runner.os }}-3.11-x64-
+            ${{ runner.os }}-3.12-x64-${{ hashFiles('**/pyproject.toml') }}-
+            ${{ runner.os }}-3.12-x64-
 
       - name: Build if artifacts not cached
         if: steps.cache.outputs.cache-hit != 'true'
-        run: make package
+        run: make package-all
 
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
