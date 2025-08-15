@@ -5,7 +5,7 @@
 ![Arch x86-63 | ARM | AppleSilicon](https://img.shields.io/badge/arch-x86--64%20%7C%20ARM%20%7C%20AppleSilicon-blue)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-0.9.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.9.1-green.svg)
 ![Development Status](https://img.shields.io/badge/status-stable-green.svg)
 
 A comprehensive Terminal User Interface (TUI) application for inspecting and interacting with Model Context Protocol (MCP) servers. This tool provides an intuitive interface to connect to MCP servers, explore their capabilities, and execute tools, prompts, and resources in real-time.
@@ -22,7 +22,16 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 
 *The Raw Interactions tab displaying real-time MCP JSON-RPC protocol messages with syntax highlighting, showing both sent (green) and received (blue) messages with timestamps and comprehensive protocol monitoring capabilities.*
 
-## 🆕 What's New in v0.9.0
+## 🆕 What's New in v0.9.1
+
+**🐛 Bug Fix**: Improved JSON serialization for MCP tool and resource responses.
+
+- Fixed issue where complex MCP objects (Pydantic models, CallToolResult) would show generic "tool executed successfully" instead of actual content
+- Added robust serialization helper with recursion depth protection
+- Improved error reporting when serialization fails
+- Better handling of FastMCP-specific response objects
+
+## What's New in v0.9.0
 
 **🔍 Enhanced Connect Commands**: Added `--debug-dump` flag to all connect commands for comprehensive server debugging.
 
