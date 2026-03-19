@@ -98,6 +98,23 @@ class ResourceItem(ListItem):
         return any(self.resource.mime_type.startswith(mime) for mime in text_mime_types)
 
 
+class ResourceTemplateItem(ListItem):
+    """Individual resource template item."""
+
+    def __init__(self, template: ResourceTemplate) -> None:
+        """Initialize resource template item."""
+        super().__init__()
+        self.template = template
+
+    def compose(self) -> ComposeResult:
+        """Create resource template item display."""
+        display_name = self.template.name or self.template.uri_template
+        yield Label(display_name, classes="resource-name")
+        yield Label(self.template.uri_template, classes="resource-description")
+        if self.template.description:
+            yield Label(self.template.description, classes="resource-description")
+
+
 class ResourcesView(Widget, can_focus_children=True):
     """View for displaying and interacting with resources."""
 
@@ -170,63 +187,46 @@ class ResourcesView(Widget, can_focus_children=True):
         except Exception:
             pass  # Button might not exist yet
 
-    def _is_resource_template(self, resource: Resource) -> bool:
-        """Check if a resource is actually a template (has parameters in URI)."""
-        return bool(re.search(r"\{[^}]+\}", resource.uri))
-
     def _extract_template_parameters(self, uri_template: str) -> list[str]:
         """Extract parameter names from URI template."""
         # Find all {parameter} patterns
         matches = re.findall(r"\{([^}]+)\}", uri_template)
         return matches
 
-    def _get_template_by_uri(self, uri: str) -> ResourceTemplate | None:
-        """Find the ResourceTemplate that matches this URI pattern."""
-        # Remove the 🔧 prefix and [Template] prefix we added for display
-        clean_uri = uri.replace("🔧 ", "").replace("[Template] ", "")
-
-        for template in self.resource_templates:
-            if template.uri_template == clean_uri:
-                return template
-        return None
-
     def _construct_resource_uri(self) -> str:
-        """Construct the actual URI for reading a resource."""
-        if not self.selected_resource:
+        """Construct the actual URI for reading a resource.
+
+        For static resources returns the URI directly.
+        For templates, substitutes form values into the URI template.
+        """
+        if self.selected_resource:
+            return self.selected_resource.uri
+
+        if not self.selected_template:
             return ""
 
-        # For static resources, use the URI as-is
-        if not self._is_resource_template(self.selected_resource):
-            return self.selected_resource.uri
+        if not self.dynamic_form:
+            return self.selected_template.uri_template
 
-        # For templates, we need to replace parameters with values from the form
-        if not self.selected_template or not self.dynamic_form:
-            # Fallback to original URI if no form data
-            return self.selected_resource.uri
-
-        # Get parameter values from the form
         parameter_values = self.dynamic_form.get_values()
-
-        # Start with the template URI (clean version without display prefixes)
         actual_uri = self.selected_template.uri_template
+        original_parameters = self._extract_template_parameters(actual_uri)
 
-        # We need to map clean field names back to original parameter names
-        # Extract original parameters from the template
-        original_parameters = self._extract_template_parameters(self.selected_template.uri_template)
-
-        # Create mapping from clean names to original names
-        param_mapping = {}
-        for original_param in original_parameters:
-            clean_param = original_param.rstrip("*")
-            param_mapping[clean_param] = original_param
-
-        # Replace each {parameter} with the actual value using original parameter names
+        param_mapping = {p.rstrip("*"): p for p in original_parameters}
         for clean_name, param_value in parameter_values.items():
             original_param = param_mapping.get(clean_name, clean_name)
-            placeholder = f"{{{original_param}}}"
-            actual_uri = actual_uri.replace(placeholder, str(param_value))
+            actual_uri = actual_uri.replace(f"{{{original_param}}}", str(param_value))
 
         return actual_uri
+
+    @property
+    def _selected_display_name(self) -> str:
+        """Return the display name for the currently selected resource or template."""
+        if self.selected_resource:
+            return self.selected_resource.name
+        if self.selected_template:
+            return self.selected_template.name or self.selected_template.uri_template
+        return "Unknown"
 
     def _update_display(self) -> None:
         """Update the resources display."""
@@ -251,20 +251,9 @@ class ResourcesView(Widget, can_focus_children=True):
                 if resource_item._is_text_resource():
                     self._load_preview_async(resource_item)
 
-            # Show resource templates with a visual distinction
+            # Show resource templates
             for template in self.resource_templates:
-                # Convert ResourceTemplate to Resource for display
-                # Add a visual indicator that this is a template
-                template_as_resource = Resource(
-                    uri=f"🔧 {template.uri_template}",  # Add template icon
-                    name=f"[Template] {template.name}" if template.name else f"[Template] {template.uri_template}",
-                    description=f"Resource Template: {template.description}"
-                    if template.description
-                    else "Resource Template",
-                    mimeType=template.mime_type,
-                )
-                template_item = ResourceItem(template_as_resource, self.mcp_service)
-                resources_list.append(template_item)
+                resources_list.append(ResourceTemplateItem(template))
 
     @work
     async def _load_preview_async(self, resource_item: ResourceItem) -> None:
@@ -274,19 +263,15 @@ class ResourcesView(Widget, can_focus_children=True):
     @work
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle resource selection."""
-        if isinstance(event.item, ResourceItem):
+        if isinstance(event.item, ResourceTemplateItem):
+            self.selected_resource = None
+            self.selected_template = event.item.template
+            await self._show_resource_form()
+            self._update_read_button_state()
+        elif isinstance(event.item, ResourceItem):
             self.selected_resource = event.item.resource
-
-            # Check if this is a template
-            if self._is_resource_template(self.selected_resource):
-                # This is a template - find the corresponding ResourceTemplate
-                self.selected_template = self._get_template_by_uri(self.selected_resource.uri)
-                await self._show_resource_form()
-            else:
-                # Static resource - no form needed
-                self.selected_template = None
-                await self._clear_resource_form()
-
+            self.selected_template = None
+            await self._clear_resource_form()
             self._update_read_button_state()
 
     async def _show_resource_form(self) -> None:
@@ -339,7 +324,7 @@ class ResourcesView(Widget, can_focus_children=True):
         """Update read button state based on selection and form validity."""
         read_button = self.query_one("#read-resource-button", Button)
 
-        if not self.selected_resource:
+        if not self.selected_resource and not self.selected_template:
             read_button.disabled = True
             return
 
@@ -357,18 +342,18 @@ class ResourcesView(Widget, can_focus_children=True):
     @work
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
-        if event.button.id == "read-resource-button" and self.selected_resource:
+        if event.button.id == "read-resource-button" and (self.selected_resource or self.selected_template):
             await self._read_resource()
 
     async def _read_resource(self) -> None:
         """Read selected resource."""
-        if not self.selected_resource:
+        if not self.selected_resource and not self.selected_template:
             return
 
         try:
             # Construct the actual URI (for templates, replace parameters with values)
             actual_uri = self._construct_resource_uri()
-            self.app.notify_info(f"Reading resource: {self.selected_resource.name}")
+            self.app.notify_info(f"Reading resource: {self._selected_display_name}")
             result = await self.mcp_service.read_resource(actual_uri)
 
             # Debug: Log the complete MCP response
@@ -396,10 +381,12 @@ class ResourcesView(Widget, can_focus_children=True):
                             self.app.debug_log(f"Blob data preview: {str(blob_data)[:100]}...")
 
                             # Use name from response if available, fallback to resource name
-                            resource_name = getattr(item, "name", None) or self.selected_resource.name
+                            resource_name = getattr(item, "name", None) or self._selected_display_name
 
                             # Use mimeType from response, fallback to resource metadata
-                            response_mime_type = getattr(item, "mimeType", None) or self.selected_resource.mime_type
+                            response_mime_type = getattr(item, "mimeType", None) or (
+                                self.selected_resource.mime_type if self.selected_resource else None
+                            )
 
                             # Handle binary content - decode base64 and save to temp file
                             file_path = self._save_blob_to_file(blob_data, resource_name, response_mime_type)
@@ -410,17 +397,19 @@ class ResourcesView(Widget, can_focus_children=True):
                             self.app.debug_log(f"Found text data, length: {len(text)}")
 
                             # Use name from response if available, fallback to resource name
-                            resource_name = getattr(item, "name", None) or self.selected_resource.name
+                            resource_name = getattr(item, "name", None) or self._selected_display_name
 
                             # Use mimeType from response, fallback to resource metadata
-                            response_mime_type = getattr(item, "mimeType", None) or self.selected_resource.mime_type
+                            response_mime_type = getattr(item, "mimeType", None) or (
+                                self.selected_resource.mime_type if self.selected_resource else None
+                            )
 
                             file_path = self._save_text_to_file(text, resource_name, response_mime_type)
                             self._show_file_response(file_path, "Text", resource_name, response_mime_type)
                     else:
-                        self.app.show_response(f"Resource: {self.selected_resource.name}", str(item), "json")
+                        self.app.show_response(f"Resource: {self._selected_display_name}", str(item), "json")
                 else:
-                    self.app.show_response(f"Resource: {self.selected_resource.name}", str(result), "json")
+                    self.app.show_response(f"Resource: {self._selected_display_name}", str(result), "json")
         except Exception as e:
             self.app.notify_error(f"Failed to read resource: {e}")
 
