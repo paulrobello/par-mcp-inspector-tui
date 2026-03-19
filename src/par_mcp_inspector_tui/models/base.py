@@ -1,12 +1,12 @@
 """Base MCP protocol models."""
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel
 
 
-class TransportType(str, Enum):
+class TransportType(StrEnum):
     """MCP transport types."""
 
     STDIO = "stdio"
@@ -14,7 +14,7 @@ class TransportType(str, Enum):
     HTTP = "http"
 
 
-class ServerNotificationType(str, Enum):
+class ServerNotificationType(StrEnum):
     """MCP server notification types for real-time updates."""
 
     TOOLS_LIST_CHANGED = "notifications/tools/list_changed"

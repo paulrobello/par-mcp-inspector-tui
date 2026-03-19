@@ -1,7 +1,7 @@
 """MCP server models."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from .base import TransportType
 
 
-class ServerState(str, Enum):
+class ServerState(StrEnum):
     """Server connection state."""
 
     DISCONNECTED = "disconnected"
