@@ -110,7 +110,8 @@ class ResourceTemplateItem(ListItem):
         """Create resource template item display."""
         display_name = self.template.name or self.template.uri_template
         yield Label(display_name, classes="resource-name")
-        yield Label(self.template.uri_template, classes="resource-description")
+        if self.template.name:
+            yield Label(self.template.uri_template, classes="resource-description")
         if self.template.description:
             yield Label(self.template.description, classes="resource-description")
 
@@ -260,7 +261,6 @@ class ResourcesView(Widget, can_focus_children=True):
         """Load text preview asynchronously."""
         await resource_item.load_text_preview()
 
-    @work
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle resource selection."""
         if isinstance(event.item, ResourceTemplateItem):
@@ -385,7 +385,8 @@ class ResourcesView(Widget, can_focus_children=True):
 
                             # Use mimeType from response, fallback to resource metadata
                             response_mime_type = getattr(item, "mimeType", None) or (
-                                self.selected_resource.mime_type if self.selected_resource else None
+                                (self.selected_resource.mime_type if self.selected_resource else None)
+                                or (self.selected_template.mime_type if self.selected_template else None)
                             )
 
                             # Handle binary content - decode base64 and save to temp file
@@ -401,7 +402,8 @@ class ResourcesView(Widget, can_focus_children=True):
 
                             # Use mimeType from response, fallback to resource metadata
                             response_mime_type = getattr(item, "mimeType", None) or (
-                                self.selected_resource.mime_type if self.selected_resource else None
+                                (self.selected_resource.mime_type if self.selected_resource else None)
+                                or (self.selected_template.mime_type if self.selected_template else None)
                             )
 
                             file_path = self._save_text_to_file(text, resource_name, response_mime_type)
