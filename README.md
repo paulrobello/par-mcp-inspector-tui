@@ -24,6 +24,13 @@ A comprehensive Terminal User Interface (TUI) application for inspecting and int
 
 ## 🆕 What's New in v0.9.1
 
+**🔧 Resource Template Support**: The Resources tab now fully supports MCP resource templates.
+
+- Resource templates (parameterized URIs like `user://{user_id}`) are displayed alongside static resources with a distinct visual style
+- Selecting a template shows a dynamic parameter input form — fill in values to construct the URI before reading
+- Read button is gated on form validity for templates, enabled immediately for static resources
+- Both static resources and templates are fetched concurrently for faster load times
+
 **🐛 Bug Fix**: Improved JSON serialization for MCP tool and resource responses.
 
 - Fixed issue where complex MCP objects (Pydantic models, CallToolResult) would show generic "tool executed successfully" instead of actual content
@@ -89,7 +96,8 @@ pmit connect-http https://api.example.com/mcp --debug-dump --verbose
 - **Intelligent Markdown Rendering**: Automatic detection and rich rendering of Markdown content
 - **CLI Debugging Tools**: Connect to arbitrary servers and inspect interactions without configuration
 - **Resource Download CLI**: Download resources by name with automatic file type detection
-- **Real-time Introspection**: Discover tools, prompts, and resources from connected servers
+- **Resource Template Support**: Parameterized resource URIs with automatic form generation for template parameters
+- **Real-time Introspection**: Discover tools, prompts, resources, and resource templates from connected servers
 - **Dynamic Forms**: Automatically generated forms based on server-provided schemas with real-time validation
 - **Form Validation**: Smart execute button control - disabled until all required fields are filled
 - **Magic Number Detection**: Automatic file type detection using magic numbers for binary resources
@@ -841,7 +849,7 @@ servers:
   - **Contents**: Server list and connection status
   - **Persistent Functionality**: All server management features remain available when hidden/shown
 - **Center Panel**: Tabbed interface with:
-  - **Resources**: Browse and read available resources
+  - **Resources**: Browse and read available resources and resource templates (with parameter forms)
   - **Prompts**: Execute prompts with dynamic argument forms and validation
   - **Tools**: Call tools with smart parameter validation and form controls
   - **Roots**: Manage filesystem roots for MCP server access boundaries
@@ -1093,6 +1101,17 @@ Use 'download-resource my-server-id "<resource-name>"' to download any resource
 Use `--verbose` flag to see raw JSON responses and detailed debugging information.
 
 ## Changelog
+
+### v0.9.1 - Resource Template Support & Serialization Fix
+- **🔧 Resource Template Support**: Full support for MCP resource templates in the Resources tab
+  - Templates displayed alongside static resources with distinct visual style
+  - Dynamic parameter input form generated automatically for template parameters
+  - Read button gated on form validity; enabled immediately for static resources
+  - Concurrent fetching of static resources and templates for faster load times
+- **🐛 Improved JSON Serialization**: Fixed MCP tool and resource response display
+  - Complex MCP objects now show actual content instead of generic success messages
+  - Robust serialization helper with recursion depth protection
+  - Better error reporting when serialization fails
 
 ### v0.9.0 - Enhanced Connect Commands with Debug Dump
 - **🔍 New `--debug-dump` Flag**: Added comprehensive debug analysis to all connect commands
