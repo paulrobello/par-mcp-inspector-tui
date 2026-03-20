@@ -307,6 +307,43 @@ class MCPService:
 
         return await self._client.list_resource_templates()
 
+    async def list_all_resources(self) -> tuple[list[Resource], list[ResourceTemplate]]:
+        """List both static resources and resource templates from connected server.
+
+        Returns:
+            Tuple of (resources, resource_templates) for combined UI display
+
+        Raises:
+            MCPClientError: If not connected or request fails
+        """
+        if not self._client or not self.connected:
+            raise MCPClientError("Not connected to server")
+
+        # Call both client methods in parallel
+        resources_task = self._client.list_resources()
+        templates_task = self._client.list_resource_templates()
+
+        results = await asyncio.gather(resources_task, templates_task, return_exceptions=True)
+
+        # Handle potential errors gracefully
+        resources_result, templates_result = results
+
+        resources_list: list[Resource]
+        if isinstance(resources_result, Exception):
+            resources_list = []
+        else:
+            # Type narrowing - resources_result is list[Resource] here
+            resources_list = resources_result  # type: ignore[assignment]
+
+        templates_list: list[ResourceTemplate]
+        if isinstance(templates_result, Exception):
+            templates_list = []
+        else:
+            # Type narrowing - templates_result is list[ResourceTemplate] here
+            templates_list = templates_result  # type: ignore[assignment]
+
+        return resources_list, templates_list
+
     async def list_prompts(self) -> list[Prompt]:
         """List available prompts from connected server.
 
